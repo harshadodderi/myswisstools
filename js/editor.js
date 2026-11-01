@@ -6,12 +6,11 @@ import { el, modal } from './ui.js';
 const MIN = 6;
 let nextId = 1;
 
-export async function pageEditor(host, { files }, { mode }) {
+export async function pageEditor(host, { files, shared = {} }, { mode }) {
   const doc = await loadPdfJs(await openBytes(files[0]));
   const items = [];
   const pagesState = [];
   let tool = { edit: 'text', sign: 'select', redact: 'redact', crop: 'crop' }[mode];
-  let pendingImage = null;
   let selected = null;
   const style = { color: '#111111', size: 14, font: 'Helvetica' };
 
@@ -112,7 +111,7 @@ export async function pageEditor(host, { files }, { mode }) {
       e.preventDefault();
       select(null);
       const start = toPoints(i, e);
-      if (mode === 'sign' || tool === 'image') { if (pendingImage) placeImage(i, start); return; }
+      if (mode === 'sign' || tool === 'image') { if (shared.image) placeImage(i, start); return; }
       if (tool === 'select' || mode === 'crop') return;
       if (tool === 'text') { addText(i, start); return; }
       layer.setPointerCapture(e.pointerId);
@@ -269,17 +268,17 @@ export async function pageEditor(host, { files }, { mode }) {
     const img = new Image();
     img.src = url;
     await img.decode();
-    pendingImage = { bytes, type, url, ratio: img.naturalWidth / img.naturalHeight };
+    shared.image = { bytes, type, url, ratio: img.naturalWidth / img.naturalHeight };
     host.dataset.armed = 'true';
   }
 
   function placeImage(page, at) {
-    const { bytes, type, url, ratio } = pendingImage;
+    const { bytes, type, url, ratio } = shared.image;
     const w = Math.min(180, pagesState[page].width * 0.5), h = w / ratio;
     const item = addItem({ type: 'image', page, x: Math.max(0, at.x - w / 2), y: Math.max(0, at.y - h / 2), w, h, bytes, mime: type });
     item.node.prepend(el('img', { src: url, alt: '', draggable: false }));
     select(item);
-    if (mode === 'edit') { pendingImage = null; setTool('select'); }
+    if (mode === 'edit') { shared.image = null; setTool('select'); }
   }
 
   async function createSignature() {

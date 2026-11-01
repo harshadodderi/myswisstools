@@ -5,8 +5,30 @@ import pages from './tools/pages.js';
 import edit from './tools/edit.js';
 import convert from './tools/convert.js';
 import security from './tools/security.js';
+import formats from './tools/formats.js';
 
-const TOOLS = [...pages, ...edit, ...convert, ...security];
+const TOOLS = [...pages, ...edit, ...convert, ...formats, ...security];
+
+// These tools take several files and run once per file.
+const BATCH = [
+  'watermark', 'numbers', 'compress', 'repair', 'ocr', 'pdfa', 'protect', 'unlock', 'pdf-to-word', 'pdf-to-ppt', 'pdf-to-excel',
+  'pdf-to-jpg', 'word-to-pdf', 'ppt-to-pdf', 'excel-to-pdf', 'epub-to-pdf', 'azw3-to-pdf', 'pdf-to-epub', 'pdf-to-azw3',
+  'epub-to-azw3', 'azw3-to-epub', 'pdf-to-text', 'pdf-to-markdown', 'pdf-to-html', 'pdf-to-csv', 'odt-to-pdf', 'rtf-to-pdf',
+];
+for (const tool of TOOLS) if (BATCH.includes(tool.id)) Object.assign(tool, { multiple: true, batch: true });
+
+async function runBatch(tool, { files, progress, report, ...rest }) {
+  const results = [], lines = [];
+  for (const [i, file] of files.entries()) {
+    const step = (p, text) => progress((i + p) / files.length, `${files.length > 1 ? `${file.name}: ` : ''}${text ?? ''}`);
+    let summary = null;
+    const out = await tool.run({ ...rest, files: [file], progress: step, report: (r) => { summary = r; } });
+    results.push(...out);
+    if (summary) lines.push(`${file.name}: ${summary.title}. ${summary.lines.join(' ')}`);
+  }
+  if (lines.length) report(files.length === 1 ? { title: 'Done', lines } : { title: `${files.length} files converted`, lines });
+  return results;
+}
 const CATS = [
   ['organize', 'Organize'], ['optimize', 'Optimize'], ['convert', 'Convert'], ['edit', 'Edit'], ['security', 'Security'],
 ];
@@ -221,7 +243,8 @@ function toolPage(tool) {
       let summary = null;
       const progress = (p, text) => { progressBar.value = p; if (text) status.textContent = text; };
       try {
-        const results = await tool.run({ files, values, studio, progress, report: (r) => { summary = r; } });
+        const input = { files, values, studio, progress, report: (r) => { summary = r; } };
+        const results = await (tool.batch ? runBatch(tool, input) : tool.run(input));
         showResults(results, summary);
       } catch (e) {
         console.error(e);

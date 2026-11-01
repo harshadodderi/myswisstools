@@ -98,6 +98,7 @@ export async function htmlToPdf(html, { css = '', pageSize = [794, 1123], margin
   };
 
   const fonts = new Map();
+  const shapedWords = new Map(); // books repeat words, so each shaped word is embedded once
   const embedFont = async (name) => {
     if (!fonts.has(name)) fonts.set(name, await out.embedFont(name));
     return fonts.get(name);
@@ -166,8 +167,12 @@ export async function htmlToPdf(html, { css = '', pageSize = [794, 1123], margin
         page.drawText(word, { x, y, size: size * PX, font, color: rgb(color.r, color.g, color.b), opacity: color.a });
       } else {
         // Whole-node shaping keeps joined scripts such as Devanagari and Arabic correct.
-        const shaped = textToCanvas(word, { size, color: hex, font: `${cs.fontStyle} ${cs.fontWeight}`, scale: 3 });
-        const png = await out.embedPng(await canvasBytes(shaped.canvas, 'image/png'));
+        const key = `${word}|${size}|${hex}|${cs.fontStyle}|${cs.fontWeight}`;
+        if (!shapedWords.has(key)) {
+          const made = textToCanvas(word, { size, color: hex, font: `${cs.fontStyle} ${cs.fontWeight}`, scale: 3 });
+          shapedWords.set(key, { made, png: await out.embedPng(await canvasBytes(made.canvas, 'image/png')) });
+        }
+        const { made: shaped, png } = shapedWords.get(key);
         const iw = shaped.width * PX, ih = shaped.height * PX;
         page.drawImage(png, { x, y: y - shaped.baseline * PX, width: iw, height: ih });
       }

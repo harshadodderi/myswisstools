@@ -55,7 +55,7 @@ const pageFields = [
 /* ---------- PDF to Word ---------- */
 
 // Groups lines into paragraphs and, where columns line up, tables.
-function structure(lines, pageWidth) {
+export function structure(lines, pageWidth) {
   const blocks = [];
   const sizes = lines.map((l) => l.size).sort((a, b) => a - b);
   const body = sizes[Math.floor(sizes.length / 2)] || 11;
@@ -181,7 +181,7 @@ async function pdfToPpt({ files, values, progress }) {
 /* ---------- PDF to Excel ---------- */
 
 // Finds column boundaries from the gaps that run down the whole page.
-function toGrid(lines) {
+export function toGrid(lines) {
   // Titles and paragraphs span the page and would merge every column, so tabular lines decide.
   const tabular = lines.filter((l) => l.runs.length > 1);
   const spans = (tabular.length ? tabular : lines).flatMap((l) => l.runs.map((r) => [r.x, r.right])).sort((a, b) => a[0] - b[0]);
@@ -447,12 +447,12 @@ function scanStudio(host, { files }) {
 
 /* ---------- tools ---------- */
 
-const flowFields = [
+export const flowFields = [
   { key: 'page', label: 'Page size', type: 'select', default: 'A4', options: [['A4', 'A4'], ['Letter', 'US Letter'], ['Legal', 'Legal']] },
   { key: 'orient', label: 'Orientation', type: 'select', default: 'portrait', options: [['portrait', 'Portrait'], ['landscape', 'Landscape']] },
   { key: 'margin', label: 'Margin', type: 'select', default: '72', options: [['36', 'Narrow'], ['72', 'Normal'], ['108', 'Wide']] },
 ];
-const sizeOf = (v) => {
+export const sizeOf = (v) => {
   const [w, h] = PAGE_SIZES[v.page];
   return v.orient === 'landscape' ? [h, w] : [w, h];
 };

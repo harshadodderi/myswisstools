@@ -4,6 +4,37 @@ import {
   placeBox, renderPage, stampText, stem,
 } from '../lib.js';
 import { pageEditor } from '../editor.js';
+import { el } from '../ui.js';
+
+// One tab per PDF. Each opens when first viewed, and a signature made in one is ready in the others.
+async function multiEditor(host, { files }, mode) {
+  const shared = {};
+  const open = new Map();
+  const tabs = el('div', { class: 'doc-tabs', role: 'tablist', hidden: files.length < 2 });
+  const stage = el('div');
+  host.append(tabs, stage);
+  const show = async (file, button) => {
+    tabs.querySelectorAll('button').forEach((b) => b.setAttribute('aria-selected', b === button));
+    for (const entry of open.values()) entry.host.hidden = true;
+    if (!open.has(file)) {
+      const panel = el('div');
+      stage.append(panel);
+      open.set(file, { host: panel, editor: await pageEditor(panel, { files: [file], shared }, { mode }) });
+    }
+    open.get(file).host.hidden = false;
+  };
+  files.forEach((file, i) => tabs.append(el('button', {
+    type: 'button', role: 'tab', class: 'doc-tab', 'data-doc': i, 'aria-selected': 'false', onclick: (e) => show(file, e.currentTarget),
+  }, file.name)));
+  await show(files[0], tabs.firstChild);
+  return { docs: () => [...open].map(([file, { editor }]) => ({ file, editor })).filter((d) => d.editor.items().length) };
+}
+
+const markedDocs = (studio, message) => {
+  const docs = studio.docs();
+  if (!docs.length) throw new UserError(message);
+  return docs;
+};
 
 const pdf = '.pdf,application/pdf';
 
@@ -66,35 +97,70 @@ async function diffWords(a, b) {
   return { removed, added };
 }
 
+async function redactDoc(file, items, values, progress) {
+  const { PDFDocument } = await pdfLib();
+  const bytes = await openBytes(file);
+  const src = await loadPdfLib(bytes), view = await loadPdfJs(bytes);
+  const out = await PDFDocument.create();
+  const byPage = new Map();
+  for (const it of items) (byPage.get(it.page) ?? byPage.set(it.page, []).get(it.page)).push(it);
+  const count = src.getPageCount(), scale = +values.dpi / 72;
+  for (let i = 0; i < count; i++) {
+    progress(i / count, `Page ${i + 1} of ${count}`);
+    const boxes = byPage.get(i);
+    if (!boxes) { const [p] = await out.copyPages(src, [i]); out.addPage(p); continue; }
+    const page = await view.getPage(i + 1);
+    const canvas = await renderPage(page, scale);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#000';
+    for (const b of boxes) ctx.fillRect(b.x * scale, b.y * scale, b.w * scale, b.h * scale);
+    const jpg = await out.embedJpg(await canvasBytes(canvas, 'image/jpeg', 0.9));
+    const w = canvas.width / scale, h = canvas.height / scale;
+    out.addPage([w, h]).drawImage(jpg, { x: 0, y: 0, width: w, height: h });
+    await breathe();
+  }
+  if (!values.scrub) {
+    const info = { Title: src.getTitle(), Author: src.getAuthor(), Subject: src.getSubject() };
+    if (info.Title) out.setTitle(info.Title);
+    if (info.Author) out.setAuthor(info.Author);
+    if (info.Subject) out.setSubject(info.Subject);
+  }
+  return output(`${stem(file.name)}-redacted.pdf`, await out.save());
+}
+
 export default [
   {
-    id: 'edit', name: 'Edit PDF', cat: 'edit', icon: 'pen', accept: pdf,
+    id: 'edit', name: 'Edit PDF', cat: 'edit', icon: 'pen', accept: pdf, multiple: true,
     desc: 'Add text, images, highlights and drawings to any page.',
     note: 'White-out only covers content; the text underneath stays in the file. Use Redact PDF for anything sensitive.',
-    action: 'Save edits', studio: (host, ctx) => pageEditor(host, ctx, { mode: 'edit' }),
-    async run({ files, studio }) {
-      const items = studio.items();
-      if (!items.length) throw new UserError('Add something to a page first.');
-      const doc = await loadPdfLib(await openBytes(files[0]));
-      await applyItems(doc, items);
-      return [output(`${stem(files[0].name)}-edited.pdf`, await doc.save())];
+    action: 'Save edits', studio: (host, ctx) => multiEditor(host, ctx, 'edit'),
+    async run({ studio }) {
+      const results = [];
+      for (const { file, editor } of markedDocs(studio, 'Add something to a page first.')) {
+        const doc = await loadPdfLib(await openBytes(file));
+        await applyItems(doc, editor.items());
+        results.push(output(`${stem(file.name)}-edited.pdf`, await doc.save()));
+      }
+      return results;
     },
   },
   {
-    id: 'sign', name: 'Sign PDF', cat: 'edit', icon: 'sign', accept: pdf,
+    id: 'sign', name: 'Sign PDF', cat: 'edit', icon: 'sign', accept: pdf, multiple: true,
     desc: 'Draw, type or upload a signature and place it on the page.',
     note: 'This adds a visible signature. It is not a certificate-based digital signature.',
-    action: 'Save signed PDF', studio: (host, ctx) => pageEditor(host, ctx, { mode: 'sign' }),
-    async run({ files, studio }) {
-      const items = studio.items();
-      if (!items.length) throw new UserError('Place a signature on a page first.');
-      const doc = await loadPdfLib(await openBytes(files[0]));
-      await applyItems(doc, items);
-      return [output(`${stem(files[0].name)}-signed.pdf`, await doc.save())];
+    action: 'Save signed PDF', studio: (host, ctx) => multiEditor(host, ctx, 'sign'),
+    async run({ studio }) {
+      const results = [];
+      for (const { file, editor } of markedDocs(studio, 'Place a signature on a page first.')) {
+        const doc = await loadPdfLib(await openBytes(file));
+        await applyItems(doc, editor.items());
+        results.push(output(`${stem(file.name)}-signed.pdf`, await doc.save()));
+      }
+      return results;
     },
   },
   {
-    id: 'redact', name: 'Redact PDF', cat: 'edit', icon: 'redact', accept: pdf,
+    id: 'redact', name: 'Redact PDF', cat: 'edit', icon: 'redact', accept: pdf, multiple: true,
     desc: 'Permanently destroy sensitive text and images, not just cover them.',
     note: 'Pages with redactions are rebuilt as images, so the hidden content is gone from the file. Text on those pages stops being selectable; other pages are untouched.',
     action: 'Redact',
@@ -102,38 +168,13 @@ export default [
       { key: 'dpi', label: 'Quality of redacted pages', type: 'select', default: '200', options: [['150', 'Standard (150 dpi)'], ['200', 'High (200 dpi)'], ['300', 'Print (300 dpi)']] },
       { key: 'scrub', label: 'Remove document metadata too', type: 'checkbox', default: true },
     ],
-    studio: (host, ctx) => pageEditor(host, ctx, { mode: 'redact' }),
-    async run({ files, studio, values, progress }) {
-      const items = studio.items();
-      if (!items.length) throw new UserError('Mark at least one area to redact.');
-      const { PDFDocument } = await pdfLib();
-      const bytes = await openBytes(files[0]);
-      const src = await loadPdfLib(bytes), view = await loadPdfJs(bytes);
-      const out = await PDFDocument.create();
-      const byPage = new Map();
-      for (const it of items) (byPage.get(it.page) ?? byPage.set(it.page, []).get(it.page)).push(it);
-      const count = src.getPageCount(), scale = +values.dpi / 72;
-      for (let i = 0; i < count; i++) {
-        progress(i / count, `Page ${i + 1} of ${count}`);
-        const boxes = byPage.get(i);
-        if (!boxes) { const [p] = await out.copyPages(src, [i]); out.addPage(p); continue; }
-        const page = await view.getPage(i + 1);
-        const canvas = await renderPage(page, scale);
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#000';
-        for (const b of boxes) ctx.fillRect(b.x * scale, b.y * scale, b.w * scale, b.h * scale);
-        const jpg = await out.embedJpg(await canvasBytes(canvas, 'image/jpeg', 0.9));
-        const w = canvas.width / scale, h = canvas.height / scale;
-        out.addPage([w, h]).drawImage(jpg, { x: 0, y: 0, width: w, height: h });
-        await breathe();
+    studio: (host, ctx) => multiEditor(host, ctx, 'redact'),
+    async run({ studio, values, progress }) {
+      const results = [];
+      for (const { file, editor } of markedDocs(studio, 'Mark at least one area to redact.')) {
+        results.push(await redactDoc(file, editor.items(), values, progress));
       }
-      if (!values.scrub) {
-        const info = { Title: src.getTitle(), Author: src.getAuthor(), Subject: src.getSubject() };
-        if (info.Title) out.setTitle(info.Title);
-        if (info.Author) out.setAuthor(info.Author);
-        if (info.Subject) out.setSubject(info.Subject);
-      }
-      return [output(`${stem(files[0].name)}-redacted.pdf`, await out.save())];
+      return results;
     },
   },
   {

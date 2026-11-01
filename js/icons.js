@@ -28,6 +28,8 @@ export const ICONS = {
   sheet: '<path d="M4 4h16v16H4zM4 10h16M4 15h16M10 4v16"/>',
   image: '<path d="M4 4h16v16H4z"/><circle cx="9" cy="9" r="1.5"/><path d="m4 17 5-5 4 4 3-3 4 4"/>',
   'image-in': '<path d="M4 4h16v16H4z"/><path d="m4 17 5-5 4 4 3-3 4 4M12 4v6M9.5 7.5 12 10l2.5-2.5"/>',
+  book: '<path d="M4 5c3-1.5 6-1.5 8 0 2-1.5 5-1.5 8 0v14c-3-1.5-6-1.5-8 0-2-1.5-5-1.5-8 0zM12 5v14"/>',
+  text: `${doc}<path d="M9 12h6M9 15h6M9 18h4"/>`,
   code: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/>',
   camera: '<path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4"/>',
 };

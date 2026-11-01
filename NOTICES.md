@@ -14,3 +14,6 @@ The `vendor/` folder contains unmodified builds of these projects, each under it
 | [SheetJS Community Edition](https://sheetjs.com) | Apache-2.0 |
 | [PptxGenJS](https://github.com/gitbrent/PptxGenJS) | MIT |
 | [docx](https://github.com/dolanmiu/docx) | MIT |
+| [marked](https://github.com/markedjs/marked) | MIT |
+| [foliate-js](https://github.com/johnfactotum/foliate-js) | MIT |
+| [fflate](https://github.com/101arrowz/fflate) | MIT |

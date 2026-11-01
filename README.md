@@ -1,6 +1,6 @@
 # Mypdftools
 
-30 PDF tools that run entirely in the browser. Files are never uploaded: everything happens in the tab, and the page's Content-Security-Policy stops it from sending data to any other server.
+44 PDF and ebook tools that run entirely in the browser. Files are never uploaded: everything happens in the tab, and the page's Content-Security-Policy stops it from sending data to any other server.
 
 ## Deploy to GitHub Pages
 
@@ -19,12 +19,15 @@ All paths are relative, so it works from a repository subpath. The `vendor/` fol
 | --- | --- |
 | Organize | Merge, Split, Remove pages, Extract pages, Organize, Rotate |
 | Optimize | Compress, Repair, OCR |
-| Convert from PDF | Word, PowerPoint, Excel, JPG/PNG, PDF/A |
-| Convert to PDF | Word, PowerPoint, Excel, JPG, HTML, Scan (camera) |
+| Convert from PDF | Word, PowerPoint, Excel, JPG/PNG, PDF/A, EPUB, AZW3, Text, Markdown, HTML, CSV |
+| Convert to PDF | Word, PowerPoint, Excel, JPG, HTML, Scan (camera), EPUB, AZW3/MOBI, Markdown, Text, ODT, RTF |
+| Ebooks | EPUB to AZW3, AZW3/MOBI to EPUB |
 | Edit | Edit, Sign, Redact, Crop, Watermark, Page numbers, Compare |
 | Security | Protect (AES-256), Unlock, Edit metadata |
 
 Password-protected PDFs work in every tool: the app asks for the password and uses it only in that tab.
+
+Edit, Sign and Redact can open several PDFs at once, each in its own tab, and a signature made in one is ready in the others. Watermark, Page numbers, Compress, Protect, OCR and the conversion tools can process many files in one run and offer the results as a ZIP.
 
 ## How it behaves
 
@@ -40,6 +43,9 @@ Password-protected PDFs work in every tool: the app asks for the password and us
 - **PDF to Word/PowerPoint/Excel:** layouts are rebuilt, not copied exactly. Multi-column pages and tables without clear column gaps can come out rough. Scans need OCR first.
 - **Word/PowerPoint/Excel to PDF:** there is no Office engine in the browser, so documents are re-laid out. Word headers, footers and exact page breaks can differ. PowerPoint charts, gradients and SmartArt, and Excel charts, are not drawn. Legacy `.doc` and `.ppt` files must be re-saved as `.docx` or `.pptx`. Fonts map to Helvetica, Times or Courier.
 - **HTML to PDF:** no URL fetching, because browsers block it. Scripts do not run, and remote images and stylesheets are removed.
+- **EPUB and AZW3:** PDF sources are rebuilt as reflowable text, so multi-column pages and repeated headers can come out rough; scans need OCR first. Book-to-PDF uses a clean reading layout rather than the book's own styling. DRM-protected books are refused, and KFX is not supported.
+- **AZW3 output is experimental:** files are uncompressed and have no table-of-contents menu. They parse in two independent readers but have not been tried on a physical Kindle or checked with Calibre. EPUB output has not been run through EPUBCheck.
+- **ODT and RTF to PDF:** ODT keeps text, basic styling, lists, tables and images. RTF keeps text, bold and italic only.
 - **PDF/A:** produces a PDF/A-2B structure with pages stored as images. It has not been checked with a validator such as veraPDF, so verify it if conformance is a legal requirement.
 - **Sign:** adds a visible signature, not a certificate-based digital signature.
 - **Large files:** limited by the device's memory, especially on phones.

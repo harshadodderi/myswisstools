@@ -121,6 +121,28 @@ async function makeFixtures(page) {
   write('real.pdf', await page.pdf({ format: 'A4', printBackground: true, tagged: true }));
   await page.goto(BASE);
 
+  const book = new JSZip();
+  book.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+  book.file('META-INF/container.xml', '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/c.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');
+  book.file('OEBPS/c.opf', '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Sea Tales</dc:title><dc:creator>Asha Rao</dc:creator><dc:language>en</dc:language></metadata><manifest><item id="a" href="text/one.xhtml" media-type="application/xhtml+xml"/><item id="b" href="text/two.xhtml" media-type="application/xhtml+xml"/><item id="i" href="img/pic.png" media-type="image/png"/></manifest><spine><itemref idref="a"/><itemref idref="b"/></spine></package>');
+  book.file('OEBPS/text/one.xhtml', '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>One</title></head><body><h1>First Voyage</h1><p>Café words with <b>bold</b> and हिन्दी.</p><img src="../img/pic.png" alt="x"/></body></html>');
+  book.file('OEBPS/text/two.xhtml', `<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Two</title></head><body><h1>Second Voyage</h1>${'<p>The long tide turned over the harbour wall again. </p>'.repeat(400)}<p>Final line of the book.</p></body></html>`);
+  book.file('OEBPS/img/pic.png', Uint8Array.from(scanImg));
+  write('book.epub', await book.generateAsync({ type: 'nodebuffer' }));
+
+  const locked = new JSZip();
+  locked.file('META-INF/container.xml', '<container/>');
+  locked.file('META-INF/encryption.xml', '<encryption xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><EncryptedData xmlns="http://www.w3.org/2001/04/xmlenc#"><EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#aes128-cbc"/></EncryptedData></encryption>');
+  write('drm.epub', await locked.generateAsync({ type: 'nodebuffer' }));
+
+  const odt = new JSZip();
+  odt.file('content.xml', '<?xml version="1.0"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"><office:automatic-styles><style:style style:name="T1" style:family="text"><style:text-properties fo:font-weight="bold"/></style:style></office:automatic-styles><office:body><office:text><text:h text:outline-level="1">Open Heading</text:h><text:p>Plain <text:span text:style-name="T1">strong</text:span> text.</text:p><table:table><table:table-row><table:table-cell><text:p>OdtCell</text:p></table:table-cell></table:table-row></table:table></office:text></office:body></office:document-content>');
+  write('doc.odt', await odt.generateAsync({ type: 'nodebuffer' }));
+
+  write('doc.rtf', String.raw`{\rtf1\ansi{\fonttbl{\f0 Times;}}\f0 Hello {\b Bold} caf\'e9 \u2713?\par Second para\par}`);
+  write('note.md', '# Big Title\n\nSome **strong** text.\n\n- item one\n- item two\n\n```\ncode line\n```\n');
+  write('note.txt', 'Plain line one\nPlain line two\n');
+
   write('page.html', '<html><head><title>x</title><script>document.title="pwned"</script></head><body><h1 style="color:#c00">Web Heading</h1><p>Body paragraph with <b>bold</b> words.</p><img src="https://example.com/track.png"><div style="background:url(https://example.com/bg.png)">styled</div><style>@import "https://example.com/a.css";</style><link rel="stylesheet" href="https://example.com/b.css"></body></html>');
 }
 
@@ -234,7 +256,7 @@ console.log('Tools:');
 await test('home', async () => {
   await page.goto(BASE);
   const n = await page.locator('.tool-card').count();
-  check(n >= 28, `only ${n} tools listed`);
+  check(n >= 44, `only ${n} tools listed`);
   await page.fill('#tool-search', 'water');
   check(await page.locator('.tool-card').count() === 1, 'search did not filter');
 });
@@ -388,7 +410,7 @@ await test('sign', async () => {
   await page.click('#new-signature');
   await page.fill('#typed-signature', 'Asha Rao');
   await page.click('dialog button[type=submit]');
-  await page.waitForFunction(() => document.querySelector('.studio').dataset.armed === 'true');
+  await page.waitForFunction(() => document.querySelector('[data-armed]'));
   const b = await page.locator('.sheet[data-page="0"] .layer').boundingBox();
   await page.mouse.click(b.x + b.width * 0.5, b.y + b.height * 0.5);
   await page.click('#sign-all');
@@ -506,6 +528,202 @@ await test('real-repair-and-redact', async () => {
   await page.waitForFunction(() => document.querySelectorAll('.item-redact').length >= 1);
   const [o] = await run();
   check(!(await pdfText(o.bytes)).pages.join().includes('Widget'), 'still extractable');
+});
+
+const pdfOf = async (id, file, opts) => {
+  await open(id, [file]);
+  if (opts) for (const [k, v] of Object.entries(opts)) await setField(k, v);
+  return (await run())[0];
+};
+const textOfZip = async (bytes, match) => {
+  const zip = await JSZip.loadAsync(Uint8Array.from(bytes));
+  const parts = await Promise.all(Object.keys(zip.files).filter((n) => match.test(n)).map((n) => zip.file(n).async('text')));
+  return { zip, text: parts.join('\n') };
+};
+
+await test('epub-to-pdf', async () => {
+  const o = save(await pdfOf('epub-to-pdf', 'book.epub'));
+  const { pages, count } = await pdfText(o.bytes);
+  const all = pages.join(' ');
+  check(count >= 3 && pages[0].includes('First') && all.includes('Second') && all.includes('Final line'), `${count} pages`);
+  check(all.includes('Café'), 'accent lost');
+});
+
+await test('epub-drm-refused', async () => {
+  await open('epub-to-pdf', ['drm.epub']);
+  await page.click('#run');
+  await expectToast('DRM-protected');
+});
+
+let azw;
+await test('epub-to-azw3', async () => {
+  const o = save(await pdfOf('epub-to-azw3', 'book.epub'));
+  azw = o;
+  writeFileSync(fx('made.azw3'), Uint8Array.from(o.bytes));
+  check(Buffer.from(o.bytes.slice(60, 68)).toString() === 'BOOKMOBI', 'bad magic');
+});
+
+await test('azw3-to-epub-roundtrip', async () => {
+  if (!azw) throw new Error('needs epub-to-azw3');
+  const o = save(await pdfOf('azw3-to-epub', 'made.azw3'));
+  o.name = 'roundtrip.epub';
+  const { zip, text } = await textOfZip(o.bytes, /\.(xhtml|opf)$/);
+  check(zip.file('mimetype') && Object.keys(zip.files)[0] === 'mimetype', 'mimetype not first');
+  check(text.includes('Sea Tales') && text.includes('Asha Rao'), 'metadata lost');
+  check(text.includes('First Voyage') && text.includes('Café') && text.includes('Final line of the book'), 'text lost');
+  check(text.includes('हिन्दी'), 'unicode lost');
+  check(Object.keys(zip.files).some((f) => /images\/img1\.png/.test(f)), 'image lost');
+});
+
+await test('azw3-to-pdf', async () => {
+  if (!azw) throw new Error('needs epub-to-azw3');
+  const o = await pdfOf('azw3-to-pdf', 'made.azw3');
+  check((await pdfText(o.bytes)).pages.join(' ').includes('Final line'), 'text lost');
+});
+
+await test('azw3-rejects-other-files', async () => {
+  await open('azw3-to-pdf', ['note.txt']);
+  await page.click('#run');
+  await expectToast('does not look like');
+});
+
+await test('pdf-to-epub', async () => {
+  const o = save(await pdfOf('pdf-to-epub', 'table.pdf'));
+  const { text } = await textOfZip(o.bytes, /chapter\d+\.xhtml$/);
+  check(text.includes('Quarterly Report') && text.includes('<table') && text.includes('Plums'), 'content missing');
+  const bad = await page.evaluate((t) => new DOMParser().parseFromString(t, 'application/xml').querySelector('parsererror')?.textContent, text.split('\n<?xml')[0]);
+  check(!bad, `invalid XHTML: ${bad}`);
+});
+
+await test('pdf-to-azw3', async () => {
+  const o = save(await pdfOf('pdf-to-azw3', 'heavy.pdf'));
+  writeFileSync(fx('fromPdf.azw3'), Uint8Array.from(o.bytes));
+  const back = await pdfOf('azw3-to-epub', 'fromPdf.azw3');
+  const { zip, text } = await textOfZip(back.bytes, /\.xhtml$/);
+  check(text.includes('Selectable caption'), 'text lost');
+  check(Object.keys(zip.files).some((f) => f.includes('images/')), 'image lost');
+});
+
+await test('pdf-to-text', async () => {
+  const o = save(await pdfOf('pdf-to-text', 'text.pdf'));
+  const t = Buffer.from(o.bytes).toString();
+  check(t.includes('Page marker 1') && t.includes('Page marker 5'), t.slice(0, 80));
+});
+
+await test('pdf-to-markdown', async () => {
+  const o = save(await pdfOf('pdf-to-markdown', 'table.pdf'));
+  const t = Buffer.from(o.bytes).toString();
+  check(/^#+ Quarterly Report/m.test(t) && t.includes('| Plums | 1,300 | 0.80 |'), t);
+});
+
+await test('pdf-to-html', async () => {
+  const o = save(await pdfOf('pdf-to-html', 'heavy.pdf'));
+  const t = Buffer.from(o.bytes).toString();
+  check(t.includes('Selectable caption') && t.includes('src="data:image/'), 'html incomplete');
+});
+
+await test('pdf-to-csv', async () => {
+  const o = save(await pdfOf('pdf-to-csv', 'table.pdf'));
+  const t = Buffer.from(o.bytes).toString();
+  check(t.includes('Plums,1300,0.8'), t);
+});
+
+await test('markdown-to-pdf', async () => {
+  const o = await pdfOf('markdown-to-pdf', 'note.md');
+  const { pages } = await pdfText(o.bytes);
+  check(pages[0].includes('Title') && pages[0].includes('strong') && pages[0].includes('item') && pages[0].includes('code'), pages[0]);
+});
+
+await test('text-to-pdf', async () => {
+  const o = await pdfOf('text-to-pdf', 'note.txt');
+  check((await pdfText(o.bytes)).pages[0].includes('line two'), 'text missing');
+});
+
+await test('odt-to-pdf', async () => {
+  const o = await pdfOf('odt-to-pdf', 'doc.odt');
+  const p = (await pdfText(o.bytes)).pages[0];
+  check(p.includes('Open') && p.includes('strong') && p.includes('OdtCell'), p);
+});
+
+await test('rtf-to-pdf', async () => {
+  const o = await pdfOf('rtf-to-pdf', 'doc.rtf');
+  const p = (await pdfText(o.bytes)).pages[0];
+  check(p.includes('Hello') && p.includes('Bold') && p.includes('café') && p.includes('Second') && !p.includes('Times'), p);
+});
+
+await test('multi-edit', async () => {
+  await open('edit', ['text.pdf', 'table.pdf']);
+  await page.waitForSelector('.doc-tab');
+  check(await page.locator('.doc-tab').count() === 2, 'no tabs');
+  await page.waitForSelector('.sheet canvas');
+  const click = async () => {
+    const b = await page.locator('.sheet:visible').first().locator('.layer').boundingBox();
+    await page.mouse.click(b.x + b.width * 0.2, b.y + b.height * 0.5);
+  };
+  await click();
+  await page.keyboard.type('Edit in first');
+  await page.click('[data-doc="1"]');
+  await page.waitForFunction(() => [...document.querySelectorAll('.sheet canvas')].some((c) => c.offsetParent));
+  await page.locator('button[data-tool="text"]:visible').click();
+  await click();
+  await page.keyboard.type('Edit in second');
+  const out = await run();
+  check(out.length === 2, `files ${out.length}`);
+  check((await pdfText(out[0].bytes)).pages[0].includes('Edit in first'), 'first lost');
+  check((await pdfText(out[1].bytes)).pages[0].includes('Edit in second'), 'second lost');
+  check(!(await pdfText(out[1].bytes)).pages[0].includes('Edit in first'), 'edits leaked between documents');
+});
+
+await test('multi-sign-shares-signature', async () => {
+  await open('sign', ['text.pdf', 'table.pdf']);
+  await page.waitForSelector('.sheet canvas');
+  await page.locator('#new-signature:visible').click();
+  await page.fill('#typed-signature', 'Asha Rao');
+  await page.click('dialog button[type=submit]');
+  await page.waitForFunction(() => document.querySelector('[data-armed]'));
+  const place = async () => {
+    const b = await page.locator('.sheet:visible').first().locator('.layer').boundingBox();
+    await page.mouse.click(b.x + b.width * 0.5, b.y + b.height * 0.5);
+  };
+  await place();
+  await page.click('[data-doc="1"]');
+  await page.waitForFunction(() => [...document.querySelectorAll('.sheet canvas')].some((c) => c.offsetParent));
+  await place();
+  check(await page.locator('.item-image').count() === 2, 'signature not reused');
+  const out = await run();
+  check(out.length === 2, `files ${out.length}`);
+});
+
+await test('multi-redact', async () => {
+  await open('redact', ['text.pdf', 'real.pdf']);
+  await page.waitForSelector('.sheet canvas');
+  await page.locator('.editor-bar input[type=search]:visible').fill('SECRET-4471');
+  await page.locator('#find-redact:visible').click();
+  await page.waitForFunction(() => document.querySelectorAll('.item-redact').length === 5);
+  await page.click('[data-doc="1"]');
+  await page.waitForFunction(() => [...document.querySelectorAll('.sheet canvas')].some((c) => c.offsetParent));
+  await page.locator('.editor-bar input[type=search]:visible').fill('Widget');
+  await page.locator('#find-redact:visible').click();
+  await page.waitForFunction(() => document.querySelectorAll('.item-redact').length >= 6);
+  const out = await run();
+  check(out.length === 2, `files ${out.length}`);
+  check(!(await pdfText(out[0].bytes)).pages.join().includes('SECRET'), 'first not redacted');
+  check(!(await pdfText(out[1].bytes)).pages.join().includes('Widget'), 'second not redacted');
+});
+
+await test('batch-watermark', async () => {
+  await open('watermark', ['text.pdf', 'table.pdf']);
+  await setField('text', 'BATCHED');
+  const out = await run();
+  check(out.length === 2, `files ${out.length}`);
+  for (const o of out) check((await pdfText(o.bytes)).pages[0].includes('BATCHED'), `${o.name} missing`);
+  check(await page.locator('#zip-all').count() === 1, 'no zip');
+});
+
+await test('batch-compress-report', async () => {
+  await open('compress', ['heavy.pdf', 'text.pdf']);
+  const out = await run();
+  check(out.length === 2 && (await page.textContent('#results')).includes('heavy.pdf'), 'batch summary missing');
 });
 
 await test('pdfa', async () => {

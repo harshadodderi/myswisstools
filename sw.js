@@ -1,9 +1,9 @@
 // Keeps the app working offline. Never sees user files: tools work on them in memory.
-const VERSION = 'mypdftools-v2';
+const VERSION = 'mypdftools-v3';
 const SHELL = [
   './', 'index.html', 'style.css', 'icon.svg', 'manifest.webmanifest',
   'js/app.js', 'js/lib.js', 'js/ui.js', 'js/icons.js', 'js/editor.js', 'js/pagegrid.js', 'js/htmlpdf.js',
-  'js/tools/pages.js', 'js/tools/edit.js', 'js/tools/convert.js', 'js/tools/security.js',
+  'js/tools/pages.js', 'js/tools/edit.js', 'js/tools/convert.js', 'js/tools/formats.js', 'js/books.js', 'js/tools/security.js',
   'vendor/pdf-lib.esm.min.js', 'vendor/pdfjs/pdf.min.mjs', 'vendor/pdfjs/pdf.worker.min.mjs',
   'vendor/qpdf/qpdf.js', 'vendor/qpdf/qpdf.wasm',
 ];

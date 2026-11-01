@@ -23,6 +23,9 @@ export const mammoth = () => script('mammoth.browser.min.js', 'mammoth');
 export const xlsx = () => script('xlsx.full.min.js', 'XLSX');
 export const pptxgen = () => script('pptxgen.bundle.js', 'PptxGenJS');
 export const docx = () => script('docx.iife.js', 'docx');
+export const marked = () => script('marked.umd.js', 'marked');
+export const mobi = () => once('mobi', () => import(base + 'foliate-mobi.js'));
+export const fflate = () => once('fflate', () => import(base + 'fflate.js'));
 export const tesseract = () => script('tesseract/tesseract.min.js', 'Tesseract');
 
 export const pdfjs = () => once('pdfjs', async () => {
@@ -49,6 +52,7 @@ export const MIME = {
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  epub: 'application/epub+zip', azw3: 'application/vnd.amazon.ebook', txt: 'text/plain', md: 'text/markdown', html: 'text/html', csv: 'text/csv',
 };
 
 export const output = (name, bytes) => ({ name, bytes, type: MIME[name.split('.').pop()] || 'application/octet-stream' });
