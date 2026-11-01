@@ -2,11 +2,15 @@
 
 44 PDF and ebook tools that run entirely in the browser. Files are never uploaded: everything happens in the tab, and the page's Content-Security-Policy stops it from sending data to any other server.
 
-## Deploy to GitHub Pages
+**Use it:** https://harshadodderi.github.io/Mypdftools/
 
-The repo is a plain static site with no build step, so any static host works.
+**Source:** https://github.com/harshadodderi/Mypdftools
 
-1. Create a **public** GitHub repository and push this folder to `main`.
+## Deploy your own copy
+
+The repo is a plain static site with no build step, so any static host works. To host it on GitHub Pages:
+
+1. Fork this repository, or create a **public** one and push this folder to `main`.
 2. In the repository, open **Settings → Pages**.
 3. Under **Build and deployment**, choose **Deploy from a branch**, then `main` and `/ (root)`.
 4. The site appears at `https://<username>.github.io/<repo>/` within a minute or two.
