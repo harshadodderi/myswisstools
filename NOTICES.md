@@ -17,4 +17,17 @@ The `vendor/` folder contains unmodified builds of these projects, each under it
 | [marked](https://github.com/markedjs/marked) | MIT |
 | [foliate-js](https://github.com/johnfactotum/foliate-js) | MIT |
 | [fflate](https://github.com/101arrowz/fflate) | MIT |
-| [Plus Jakarta Sans](https://github.com/tokotype/PlusJakartaSans) | SIL Open Font License 1.1 |
+
+## Fonts
+
+Every font shipped with this site is free to use and redistribute under an open-source license, with no fee. Each license sits next to its font files.
+
+| Font | Used for | License | License file |
+| --- | --- | --- | --- |
+| [Plus Jakarta Sans](https://github.com/tokotype/PlusJakartaSans) | App interface | SIL Open Font License 1.1 | `vendor/fonts/OFL.txt` |
+| Liberation Sans | Displaying PDFs with PDF.js | GPL v2 with a font exception (Red Hat) | `vendor/pdfjs/standard_fonts/LICENSE_LIBERATION` |
+| Foxit standard fonts | Displaying PDFs with PDF.js | BSD-style (PDFium) | `vendor/pdfjs/standard_fonts/LICENSE_FOXIT` |
+
+Other font names in the code, such as Arial, Times New Roman, Courier New and SF Mono, are not shipped. They only ask the browser to use a font already installed on the visitor's device. PDFs created here refer to the standard PDF fonts Helvetica, Times and Courier by name and do not embed them.
+
+Liberation Sans and the Foxit fonts come unmodified from PDF.js and are only used to display PDFs on screen, so they are not embedded in files this app creates.
