@@ -1,0 +1,31 @@
+{
+  "name": "mypdftools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Private PDF toolkit that runs entirely in the browser",
+  "type": "module",
+  "scripts": {
+    "vendor": "node scripts/vendor.mjs",
+    "serve": "node scripts/serve.mjs",
+    "test": "node tests/e2e.mjs"
+  },
+  "devDependencies": {
+    "@neslinesli93/qpdf-wasm": "^0.3.0",
+    "@pdf-lib/fontkit": "^1.1.1",
+    "@tesseract.js-data/deu": "^1.0.0",
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@tesseract.js-data/fra": "^1.0.0",
+    "@tesseract.js-data/hin": "^1.0.0",
+    "@tesseract.js-data/spa": "^1.0.0",
+    "docx": "^9.15.1",
+    "jszip": "^3.10.2",
+    "mammoth": "^1.13.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.4.299",
+    "playwright": "^1.64.1",
+    "pptxgenjs": "^4.0.1",
+    "tesseract.js": "^7.0.0",
+    "tesseract.js-core": "^7.0.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  }
+}

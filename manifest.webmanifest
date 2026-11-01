@@ -1,0 +1,11 @@
+{
+  "name": "Mypdftools",
+  "short_name": "Mypdftools",
+  "description": "Private PDF tools that run entirely in your browser",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f1e7",
+  "theme_color": "#c8391f",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
