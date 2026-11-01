@@ -12,7 +12,7 @@ The repo is a plain static site with no build step, so any static host works. To
 
 1. Fork this repository, or create a **public** one and push this folder to `main`.
 2. In the repository, open **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**, then `main` and `/ (root)`.
+3. Under **Build and deployment**, set the source to **GitHub Actions**. The included workflow deploys every push to `main`.
 4. The site appears at `https://<username>.github.io/<repo>/` within a minute or two.
 
 All paths are relative, so it works from a repository subpath. The `vendor/` folder (about 59 MB) must be committed; it is what makes the site independent of CDNs.

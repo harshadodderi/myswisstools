@@ -71,11 +71,11 @@ function home() {
   const draw = () => {
     const q = search.value.trim().toLowerCase();
     const sections = CATS.map(([id, label]) => {
-      const list = TOOLS.filter((t) => t.cat === id && `${t.name} ${t.desc}`.toLowerCase().includes(q));
+      const list = TOOLS.filter((t) => t.cat === id && `${t.name} ${t.desc} ${t.id}`.toLowerCase().includes(q));
       if (!list.length) return null;
-      return el('section', { class: 'group' }, el('h2', {}, label),
+      return el('section', { class: 'group' }, el('h2', {}, label, el('span', {}, list.length)),
         el('div', { class: 'tool-grid' }, list.map((t) => el('a', { class: 'tool-card', href: `#/${t.id}`, title: t.desc },
-          icon(t.icon), el('span', {}, t.name)))));
+          icon(t.icon), el('span', { class: 'tool-text' }, t.name, el('code', {}, `${id}/${t.id}`))))));
     }).filter(Boolean);
     groups.replaceChildren(...sections);
     empty.hidden = sections.length > 0;
@@ -85,11 +85,24 @@ function home() {
   draw();
   root.replaceChildren(
     el('section', { class: 'hero' },
-      el('h1', {}, 'Your PDFs. Your device.'),
-      el('p', {}, 'Every tool runs right here in your browser. Nothing is ever uploaded.'),
-      search),
+      el('h1', {}, 'Serious PDF Tools, Zero Uploads'),
+      el('p', {}, 'Convert, edit and protect documents right in your browser. Your files never leave this device.'),
+      el('label', { class: 'search-wrap' }, search, el('kbd', {}, '⌘K')),
+      el('dl', { class: 'stats' },
+        el('div', {}, el('dd', {}, String(TOOLS.length)), el('dt', {}, 'Tools')),
+        el('div', {}, el('dd', {}, '0'), el('dt', {}, 'Files uploaded')),
+        el('div', {}, el('dd', {}, '0'), el('dt', {}, 'Accounts needed')),
+        el('div', {}, el('dd', {}, 'Yes'), el('dt', {}, 'Works offline')))),
     groups, empty);
 }
+
+// ⌘K / Ctrl+K jumps to search from anywhere.
+window.addEventListener('keydown', (e) => {
+  if (e.key.toLowerCase() !== 'k' || !(e.metaKey || e.ctrlKey)) return;
+  e.preventDefault();
+  if (location.hash.replace(/^#\/?/, '')) location.hash = '#/';
+  setTimeout(() => document.getElementById('tool-search')?.focus());
+});
 
 /* ---------- tool page ---------- */
 

@@ -17,3 +17,4 @@ The `vendor/` folder contains unmodified builds of these projects, each under it
 | [marked](https://github.com/markedjs/marked) | MIT |
 | [foliate-js](https://github.com/johnfactotum/foliate-js) | MIT |
 | [fflate](https://github.com/101arrowz/fflate) | MIT |
+| [Plus Jakarta Sans](https://github.com/tokotype/PlusJakartaSans) | SIL Open Font License 1.1 |

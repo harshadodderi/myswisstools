@@ -25,6 +25,7 @@ copy('docx/dist/index.iife.js', 'docx.iife.js');
 copy('marked/lib/marked.umd.js', 'marked.umd.js');
 copy('foliate-js/mobi.js', 'foliate-mobi.js');
 copy('fflate/esm/browser.js', 'fflate.js');
+copy('@fontsource-variable/plus-jakarta-sans/files/plus-jakarta-sans-latin-wght-normal.woff2', 'fonts/plus-jakarta-sans.woff2');
 copy('tesseract.js/dist/tesseract.min.js', 'tesseract/tesseract.min.js');
 copy('tesseract.js/dist/worker.min.js', 'tesseract/worker.min.js');
 for (const v of ['tesseract-core-lstm', 'tesseract-core-simd-lstm', 'tesseract-core-relaxedsimd-lstm']) {
