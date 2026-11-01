@@ -1,10 +1,10 @@
-# Mypdftools
+# myswisstools
 
-44 PDF and ebook tools that run entirely in the browser. Files are never uploaded: everything happens in the tab, and the page's Content-Security-Policy stops it from sending data to any other server.
+57 PDF, ebook and image tools that run entirely in the browser, on desktop and on phones. Files are never uploaded: everything happens in the tab, and the page's Content-Security-Policy stops it from sending data to any other server.
 
-**Use it:** https://harshadodderi.github.io/Mypdftools/
+**Use it:** https://harshadodderi.github.io/myswisstools/
 
-**Source:** https://github.com/harshadodderi/Mypdftools
+**Source:** https://github.com/harshadodderi/myswisstools
 
 ## Deploy your own copy
 
@@ -15,9 +15,13 @@ The repo is a plain static site with no build step, so any static host works. To
 3. Under **Build and deployment**, set the source to **GitHub Actions**. The included workflow deploys every push to `main`.
 4. The site appears at `https://<username>.github.io/<repo>/` within a minute or two.
 
-All paths are relative, so it works from a repository subpath. The `vendor/` folder (about 59 MB) must be committed; it is what makes the site independent of CDNs.
+All paths are relative, so it works from a repository subpath. The `vendor/` folder (about 87 MB) must be committed; it is what makes the site independent of CDNs.
 
 ## Tools
+
+The PDF / IMG pill at the top switches between the two sets.
+
+### PDF (44)
 
 | Group | Tools |
 | --- | --- |
@@ -33,6 +37,18 @@ Password-protected PDFs work in every tool: the app asks for the password and us
 
 Edit, Sign and Redact can open several PDFs at once, each in its own tab, and a signature made in one is ready in the others. Watermark, Page numbers, Compress, Protect, OCR and the conversion tools can process many files in one run and offer the results as a ZIP.
 
+### Images (13)
+
+| Group | Tools |
+| --- | --- |
+| Optimize | Compress, Upscale (AI), Remove background (AI) |
+| Create | Meme generator |
+| Edit | Resize, Crop, Rotate, Photo editor |
+| Convert | Convert to JPG, Convert from JPG, HTML to image |
+| Security | Watermark, Blur face (AI) |
+
+Input formats include JPG, PNG, WebP, GIF (animated too), SVG, HEIC, TIFF, PSD and camera RAW. The AI models also run on the device, so nothing is uploaded.
+
 ## How it behaves
 
 - **Protect** is real AES-256 encryption through qpdf. A lost password cannot be recovered.
@@ -42,6 +58,13 @@ Edit, Sign and Redact can open several PDFs at once, each in its own tab, and a 
 - **Watermark, page numbers and edit text** work in any script. Latin text stays real text; other scripts are drawn with the device's fonts and embedded as images.
 
 ## Known limits
+
+- **Images on phones:** photos over about 16 megapixels are reduced to fit in memory, because phones lose larger canvases. AI tools are slower on phones, and Upscale reduces oversized images first.
+- **Remove background:** uses a small model so it can run on a phone. It works best with one clear subject. Busy group photos can lose parts.
+- **Blur face:** detection can miss small, turned or covered faces, so always check the result. Blur can sometimes be reversed; use Solid block for anything truly sensitive.
+- **RAW files:** use the full-size preview stored by the camera rather than developing the sensor data.
+- **WebP output:** Safari cannot write WebP, so it saves PNG instead and names the file accordingly.
+- **HTML to image:** uses the same layout engine as HTML to PDF, so fonts map to Helvetica, Times or Courier.
 
 - **Not included:** AI Translate and AI Summarize. They need a large language model, which does not fit a static, on-device site.
 - **PDF to Word/PowerPoint/Excel:** layouts are rebuilt, not copied exactly. Multi-column pages and tables without clear column gaps can come out rough. Scans need OCR first.
@@ -60,9 +83,11 @@ Edit, Sign and Redact can open several PDFs at once, each in its own tab, and a 
 npm install
 npm run vendor   # refresh vendor/ from node_modules
 npm run serve    # http://localhost:8123
-npm test         # drives every tool in Chrome and re-checks the outputs
+npm test         # drives every tool in Chrome, then repeats key flows with phone touch emulation
 ```
 
 `BROWSER=firefox npm test` and `BROWSER=webkit npm test` run the suite on other engines (run it once in Chrome first, which generates the fixtures, and install them with `npx playwright install firefox webkit`). `npm test -- ocr sign` runs only matching tests.
+
+Libraries without a browser build are bundled by `scripts/vendor.mjs`. The background removal model lives in `models/`.
 
 When app files change, bump `VERSION` in `sw.js`. Third-party licenses are in [NOTICES.md](NOTICES.md).

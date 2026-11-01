@@ -30,6 +30,10 @@ export const ICONS = {
   'image-in': '<path d="M4 4h16v16H4z"/><path d="m4 17 5-5 4 4 3-3 4 4M12 4v6M9.5 7.5 12 10l2.5-2.5"/>',
   book: '<path d="M4 5c3-1.5 6-1.5 8 0 2-1.5 5-1.5 8 0v14c-3-1.5-6-1.5-8 0-2-1.5-5-1.5-8 0zM12 5v14"/>',
   text: `${doc}<path d="M9 12h6M9 15h6M9 18h4"/>`,
+  expand: '<path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6M8 8h8v8H8z"/>',
+  cutout: '<circle cx="12" cy="9" r="4"/><path d="M5 21c1-4 3.5-6 7-6s6 2 7 6M3 3h2M9 3h2M15 3h2M21 3v2M3 8v2M21 8v2"/>',
+  meme: '<path d="M4 4h16v16H4zM8 8h8M9 16h6M12 8v3"/>',
+  face: '<circle cx="12" cy="12" r="8"/><path d="M9 10h.01M15 10h.01M9 15c2 1.3 4 1.3 6 0M3 3l18 18"/>',
   code: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/>',
   camera: '<path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4"/>',
 };

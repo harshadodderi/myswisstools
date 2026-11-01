@@ -10,7 +10,8 @@ export async function pageEditor(host, { files, shared = {} }, { mode }) {
   const doc = await loadPdfJs(await openBytes(files[0]));
   const items = [];
   const pagesState = [];
-  let tool = { edit: 'text', sign: 'select', redact: 'redact', crop: 'crop' }[mode];
+  const touch = matchMedia('(pointer: coarse)').matches;
+  let tool = { edit: 'text', sign: 'select', redact: touch ? 'select' : 'redact', crop: 'crop' }[mode];
   let selected = null;
   const style = { color: '#111111', size: 14, font: 'Helvetica' };
 
@@ -60,6 +61,8 @@ export async function pageEditor(host, { files, shared = {} }, { mode }) {
 
   const search = el('input', { type: 'search', placeholder: 'Find text to redact', 'aria-label': 'Find text to redact' });
   if (mode === 'redact') {
+    toolButton('select', 'Scroll');
+    toolButton('redact', 'Mark');
     bar.append(el('span', { class: 'muted' }, 'Drag over anything to black it out, or search:'));
     bar.append(search, el('button', { type: 'button', class: 'ghost', id: 'find-redact', onclick: redactMatches }, 'Mark all matches'));
   }
@@ -106,14 +109,21 @@ export async function pageEditor(host, { files, shared = {} }, { mode }) {
 
   function bindPage(i) {
     const { layer } = pagesState[i];
+    const places = () => mode === 'sign' || tool === 'image' || tool === 'text';
+    // Placing waits for a click, so a finger that starts a scroll on the page adds nothing.
+    layer.addEventListener('click', (e) => {
+      if (e.target !== layer || !places()) return;
+      select(null);
+      const at = toPoints(i, e);
+      if (tool === 'text' && mode !== 'sign') addText(i, at);
+      else if (shared.image) placeImage(i, at);
+    });
     layer.addEventListener('pointerdown', (e) => {
       if (e.target !== layer || e.button) return;
-      e.preventDefault();
       select(null);
+      if (places() || tool === 'select' || mode === 'crop') return;
+      e.preventDefault();
       const start = toPoints(i, e);
-      if (mode === 'sign' || tool === 'image') { if (shared.image) placeImage(i, start); return; }
-      if (tool === 'select' || mode === 'crop') return;
-      if (tool === 'text') { addText(i, start); return; }
       layer.setPointerCapture(e.pointerId);
       if (tool === 'ink') {
         const item = addItem({ type: 'ink', page: i, points: [start], color: style.color, width: Math.max(1, style.size / 7) });
@@ -193,8 +203,10 @@ export async function pageEditor(host, { files, shared = {} }, { mode }) {
       const s = pagesState[item.page], start = toPoints(item.page, e), from = { ...item };
       const ratio = item.type === 'image' ? item.w / item.h : 0;
       item.node.setPointerCapture(e.pointerId);
+      let moved = false;
       const move = (ev) => {
         const p = toPoints(item.page, ev), dx = p.x - start.x, dy = p.y - start.y;
+        moved = moved || Math.hypot(dx, dy) > 3;
         if (resizing) {
           item.w = Math.max(MIN * 2, from.w + dx);
           item.h = ratio ? item.w / ratio : Math.max(MIN * 2, from.h + dy);
@@ -204,7 +216,11 @@ export async function pageEditor(host, { files, shared = {} }, { mode }) {
         }
         position(item);
       };
-      const up = () => { item.node.removeEventListener('pointermove', move); item.node.removeEventListener('pointerup', up); };
+      const up = () => {
+        item.node.removeEventListener('pointermove', move);
+        item.node.removeEventListener('pointerup', up);
+        if (!moved && editing) editing.focus(); // a tap on text edits it
+      };
       item.node.addEventListener('pointermove', move);
       item.node.addEventListener('pointerup', up);
     });

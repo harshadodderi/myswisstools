@@ -17,6 +17,13 @@ The `vendor/` folder contains unmodified builds of these projects, each under it
 | [marked](https://github.com/markedjs/marked) | MIT |
 | [foliate-js](https://github.com/johnfactotum/foliate-js) | MIT |
 | [fflate](https://github.com/101arrowz/fflate) | MIT |
+| [TensorFlow.js](https://github.com/tensorflow/tfjs) | Apache-2.0 |
+| [UpscalerJS](https://github.com/thekevinscott/upscalerjs) and the ESRGAN Slim model | MIT |
+| [face-api](https://github.com/vladmandic/face-api) and its SSD MobileNet model | MIT |
+| [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) | MIT |
+| [U²-Net](https://github.com/xuebinqin/U-2-Net) u2netp model, in `models/` | Apache-2.0 |
+| [libheif-js](https://github.com/catdad-experiments/libheif-js) | LGPL-3.0, shipped unmodified as a separate file with its license in `vendor/LICENSE-libheif.txt` |
+| [gifuct-js](https://github.com/matt-way/gifuct-js), [gifenc](https://github.com/mattdesl/gifenc), [UTIF.js](https://github.com/photopea/UTIF.js), [UPNG.js](https://github.com/photopea/UPNG.js), [ag-psd](https://github.com/Agamnentzar/ag-psd), [pako](https://github.com/nodeca/pako), [SVGO](https://github.com/svg/svgo) | MIT (pako: MIT and Zlib) |
 
 ## Fonts
 
@@ -25,6 +32,7 @@ Every font shipped with this site is free to use and redistribute under an open-
 | Font | Used for | License | License file |
 | --- | --- | --- | --- |
 | [Plus Jakarta Sans](https://github.com/tokotype/PlusJakartaSans) | App interface | SIL Open Font License 1.1 | `vendor/fonts/OFL.txt` |
+| Anton | Meme captions and the Poster font | SIL Open Font License 1.1 | `vendor/fonts/OFL-anton.txt` |
 | Liberation Sans | Displaying PDFs with PDF.js | GPL v2 with a font exception (Red Hat) | `vendor/pdfjs/standard_fonts/LICENSE_LIBERATION` |
 | Foxit standard fonts | Displaying PDFs with PDF.js | BSD-style (PDFium) | `vendor/pdfjs/standard_fonts/LICENSE_FOXIT` |
 

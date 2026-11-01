@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data: blob:; worker-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
-  <title>Mypdftools</title>
-  <meta name="description" content="Merge, split, compress, convert, sign and protect PDFs in your browser. Your files never leave your device.">
+  <title>myswisstools</title>
+  <meta name="description" content="PDF and image tools that run entirely in your browser. Your files never leave your device.">
   <meta name="theme-color" content="#03080a">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -15,10 +15,14 @@
 <body>
   <a class="skip" href="#app">Skip to content</a>
   <header class="top">
-    <a class="brand" href="#/" aria-label="Mypdftools home"><img src="icon.svg" alt="" width="28" height="28"> Mypdftools</a>
+    <a class="brand" href="#/" aria-label="myswisstools home"><img src="icon.svg" alt="" width="28" height="28"> <span>myswisstools</span></a>
+    <nav class="space-pill" aria-label="Tool type">
+      <a href="#/" data-space="pdf">PDF</a>
+      <a href="#/img" data-space="img">IMG</a>
+    </nav>
     <div class="top-right">
       <p class="promise">Files stay on this device</p>
-      <a class="ghost source" href="https://github.com/harshadodderi/Mypdftools" target="_blank" rel="noopener">View code</a>
+      <a class="ghost source" href="https://github.com/harshadodderi/myswisstools" target="_blank" rel="noopener">View code</a>
     </div>
   </header>
   <main id="app" tabindex="-1"></main>

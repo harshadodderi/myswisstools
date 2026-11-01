@@ -64,6 +64,16 @@ const parseColor = (value) => {
   return { r: m[0] / 255, g: m[1] / 255, b: m[2] / 255, a: m.length > 3 ? +m[3] : 1 };
 };
 
+// Height the HTML needs at a given width, for tools that make one long page.
+export async function measureHtml(html, css, width) {
+  const frame = await makeFrame(html, `body{width:${width}px}${css}`, width, 800);
+  const doc = frame.contentDocument;
+  await Promise.all([...doc.images].map((im) => im.decode().catch(() => {})));
+  const height = Math.ceil(Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight));
+  frame.remove();
+  return Math.max(height, 1);
+}
+
 /**
  * mode 'flow': content is paginated into pages of pageWidth×pageHeight with margin.
  * mode 'fixed': each direct child of body is exactly one page, stacked vertically.

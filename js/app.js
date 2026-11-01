@@ -6,8 +6,23 @@ import edit from './tools/edit.js';
 import convert from './tools/convert.js';
 import security from './tools/security.js';
 import formats from './tools/formats.js';
+import images from './tools/images.js';
 
-const TOOLS = [...pages, ...edit, ...convert, ...formats, ...security];
+const PDF_TOOLS = [...pages, ...edit, ...convert, ...formats, ...security];
+const TOOLS = [...PDF_TOOLS.map((t) => Object.assign(t, { space: 'pdf' })), ...images.map((t) => Object.assign(t, { space: 'img' }))];
+
+const SPACES = {
+  pdf: {
+    path: '#/', title: 'Serious PDF Tools, Zero Uploads', noun: 'documents',
+    sub: 'Convert, edit and protect documents right in your browser. Your files never leave this device.',
+    cats: [['organize', 'Organize'], ['optimize', 'Optimize'], ['convert', 'Convert'], ['edit', 'Edit'], ['security', 'Security']],
+  },
+  img: {
+    path: '#/img', title: 'Serious Image Tools, Zero Uploads', noun: 'images',
+    sub: 'Compress, edit, convert and retouch pictures right in your browser. Your files never leave this device.',
+    cats: [['optimize', 'Optimize'], ['create', 'Create'], ['edit', 'Edit'], ['convert', 'Convert'], ['security', 'Security']],
+  },
+};
 
 // These tools take several files and run once per file.
 const BATCH = [
@@ -19,19 +34,17 @@ for (const tool of TOOLS) if (BATCH.includes(tool.id)) Object.assign(tool, { mul
 
 async function runBatch(tool, { files, progress, report, ...rest }) {
   const results = [], lines = [];
+  let one = null;
   for (const [i, file] of files.entries()) {
     const step = (p, text) => progress((i + p) / files.length, `${files.length > 1 ? `${file.name}: ` : ''}${text ?? ''}`);
     let summary = null;
     const out = await tool.run({ ...rest, files: [file], progress: step, report: (r) => { summary = r; } });
     results.push(...out);
-    if (summary) lines.push(`${file.name}: ${summary.title}. ${summary.lines.join(' ')}`);
+    if (summary) { one = summary; lines.push(`${file.name}: ${summary.title}. ${summary.lines.join(' ')}`); }
   }
-  if (lines.length) report(files.length === 1 ? { title: 'Done', lines } : { title: `${files.length} files converted`, lines });
+  if (one) report(files.length === 1 ? one : { title: `${files.length} files done`, lines });
   return results;
 }
-const CATS = [
-  ['organize', 'Organize'], ['optimize', 'Optimize'], ['convert', 'Convert'], ['edit', 'Edit'], ['security', 'Security'],
-];
 const root = document.getElementById('app');
 const toastEl = document.getElementById('toast');
 let handoff = null;
@@ -62,16 +75,17 @@ setPasswordPrompt(async (name, wrong) => {
 
 /* ---------- home ---------- */
 
-function home() {
-  document.title = 'Mypdftools';
-  const search = el('input', { type: 'search', id: 'tool-search', placeholder: `Search ${TOOLS.length} tools`, 'aria-label': 'Search tools', autocomplete: 'off' });
+function home(space) {
+  const info = SPACES[space], own = TOOLS.filter((t) => t.space === space);
+  document.title = space === 'img' ? 'Image tools · myswisstools' : 'myswisstools';
+  const search = el('input', { type: 'search', id: 'tool-search', placeholder: `Search ${own.length} tools`, 'aria-label': 'Search tools', autocomplete: 'off' });
   const groups = el('div', { class: 'groups' });
   const empty = el('p', { class: 'muted', hidden: true }, 'No tool matches that search.');
 
   const draw = () => {
     const q = search.value.trim().toLowerCase();
-    const sections = CATS.map(([id, label]) => {
-      const list = TOOLS.filter((t) => t.cat === id && `${t.name} ${t.desc} ${t.id}`.toLowerCase().includes(q));
+    const sections = info.cats.map(([id, label]) => {
+      const list = own.filter((t) => t.cat === id && `${t.name} ${t.desc} ${t.id}`.toLowerCase().includes(q));
       if (!list.length) return null;
       return el('section', { class: 'group' }, el('h2', {}, label, el('span', {}, list.length)),
         el('div', { class: 'tool-grid' }, list.map((t) => el('a', { class: 'tool-card', href: `#/${t.id}`, title: t.desc },
@@ -85,11 +99,11 @@ function home() {
   draw();
   root.replaceChildren(
     el('section', { class: 'hero' },
-      el('h1', {}, 'Serious PDF Tools, Zero Uploads'),
-      el('p', {}, 'Convert, edit and protect documents right in your browser. Your files never leave this device.'),
+      el('h1', {}, info.title),
+      el('p', {}, info.sub),
       el('label', { class: 'search-wrap' }, search, el('kbd', {}, '⌘K')),
       el('dl', { class: 'stats' },
-        el('div', {}, el('dd', {}, String(TOOLS.length)), el('dt', {}, 'Tools')),
+        el('div', {}, el('dd', {}, String(own.length)), el('dt', {}, 'Tools')),
         el('div', {}, el('dd', {}, '0'), el('dt', {}, 'Files uploaded')),
         el('div', {}, el('dd', {}, '0'), el('dt', {}, 'Accounts needed')),
         el('div', {}, el('dd', {}, 'Yes'), el('dt', {}, 'Works offline')))),
@@ -100,7 +114,8 @@ function home() {
 window.addEventListener('keydown', (e) => {
   if (e.key.toLowerCase() !== 'k' || !(e.metaKey || e.ctrlKey)) return;
   e.preventDefault();
-  if (location.hash.replace(/^#\/?/, '')) location.hash = '#/';
+  const open = TOOLS.find((t) => t.id === location.hash.replace(/^#\/?/, ''));
+  if (open) location.hash = SPACES[open.space].path;
   setTimeout(() => document.getElementById('tool-search')?.focus());
 });
 
@@ -133,9 +148,9 @@ function field(f, values, refresh) {
 }
 
 function toolPage(tool) {
-  document.title = `${tool.name} · Mypdftools`;
+  document.title = `${tool.name} · myswisstools`;
   let files = [];
-  const head = el('header', { class: 'tool-head' }, el('a', { class: 'back', href: '#/' }, '← All tools'),
+  const head = el('header', { class: 'tool-head' }, el('a', { class: 'back', href: SPACES[tool.space].path }, '← All tools'),
     el('div', { class: 'tool-title' }, icon(tool.icon), el('div', {}, el('h1', {}, tool.name), el('p', {}, tool.desc))));
   const body = el('div', { class: 'tool-body' });
   root.replaceChildren(head, body);
@@ -203,7 +218,11 @@ function toolPage(tool) {
     const main = el('div', { class: 'work-main' });
     const side = el('aside', { class: 'work-side' });
     const fields = new Map();
-    const refresh = () => { for (const f of tool.fields || []) fields.get(f.key).node.hidden = f.show ? !f.show(values) : false; };
+    let studio = null;
+    const refresh = () => {
+      for (const f of tool.fields || []) fields.get(f.key).node.hidden = f.show ? !f.show(values) : false;
+      studio?.update?.(values);
+    };
     for (const f of tool.fields || []) { fields.set(f.key, field(f, values, refresh)); side.append(fields.get(f.key).node); }
     refresh();
 
@@ -211,7 +230,7 @@ function toolPage(tool) {
     const status = el('p', { class: 'status', 'aria-live': 'polite' });
     const go = el('button', { type: 'button', class: 'primary big', id: 'run' }, tool.action);
     if (tool.note) side.append(el('p', { class: 'note' }, tool.note));
-    side.append(go, progressBar, status);
+    side.append(el('div', { class: 'run-bar' }, go, progressBar, status));
 
     if (!tool.studio || tool.multiple && !tool.studio) main.append(fileList());
     if (tool.multiple && !tool.studio) {
@@ -220,26 +239,22 @@ function toolPage(tool) {
     } else if (!tool.studio && tool.optionalFiles) {
       main.append(picker, el('label', { class: 'ghost add-more', htmlFor: 'file-input' }, '+ Add a file'));
     }
-    body.replaceChildren(el('div', { class: 'work' }, main, side));
-
-    let studio = null;
+    body.replaceChildren(el('div', { class: `work${tool.pinned ? ' pinned' : ''}` }, main, side));
+    const setValues = (v) => {
+      Object.assign(values, v);
+      for (const [k, val] of Object.entries(v)) fields.get(k).input.value = val;
+    };
     if (tool.studio) {
       if (tool.optionalFiles) main.append(picker, el('label', { class: 'ghost add-more', htmlFor: 'file-input' }, '+ Add photos'));
       const host = el('div', { class: 'studio' });
       main.append(host);
       status.textContent = 'Opening document…';
       go.disabled = true;
-      try { studio = await tool.studio(host, { files }); status.textContent = ''; go.disabled = false; }
+      try { studio = await tool.studio(host, { files, values, setValues }); status.textContent = ''; go.disabled = false; }
       catch (e) { console.error(e); status.textContent = ''; toast(friendly(e)); start(); return; }
     }
     if (tool.init) {
-      await tool.init({
-        files,
-        setValues: (v) => {
-          Object.assign(values, v);
-          for (const [k, val] of Object.entries(v)) fields.get(k).input.value = val;
-        },
-      }).catch((e) => toast(friendly(e)));
+      await tool.init({ files, setValues }).catch((e) => toast(friendly(e)));
     }
 
     go.addEventListener('click', async () => {
@@ -270,9 +285,18 @@ function toolPage(tool) {
       const blob = new Blob([r.bytes], { type: r.type });
       return { ...r, blob, url: URL.createObjectURL(blob) };
     });
-    const list = el('ul', { class: 'results' }, items.map((r) => el('li', {},
-      el('span', { class: 'file-name' }, r.name), el('span', { class: 'muted' }, formatSize(r.blob.size)),
-      el('a', { class: 'ghost download', href: r.url, download: r.name }, 'Download'))));
+    const row = (r) => {
+      const li = el('li', {}, r.type.startsWith('image/') ? el('img', { class: 'result-thumb', src: r.url, alt: '' }) : null,
+        el('span', { class: 'file-name' }, r.name), el('span', { class: 'muted' }, formatSize(r.blob.size)),
+        el('a', { class: 'ghost download', href: r.url, download: r.name }, 'Download'));
+      // On phones this is how a result reaches Photos or another app.
+      const file = new File([r.blob], r.name, { type: r.type });
+      if (navigator.canShare?.({ files: [file] })) {
+        li.append(el('button', { type: 'button', class: 'ghost share', onclick: () => navigator.share({ files: [file] }).catch(() => {}) }, 'Share'));
+      }
+      return li;
+    };
+    const list = el('ul', { class: 'results' }, items.map(row));
     const panel = el('section', { class: 'done', id: 'results', tabIndex: -1 },
       el('h2', {}, summary?.title || (items.length > 1 ? `${items.length} files ready` : 'Your file is ready')),
       summary?.lines.map((l) => el('p', { class: 'summary-line' }, l)), list);
@@ -284,13 +308,15 @@ function toolPage(tool) {
         const zip = new JSZip();
         items.forEach((r) => zip.file(r.name, r.blob));
         const blob = await zip.generateAsync({ type: 'blob' });
-        el('a', { href: URL.createObjectURL(blob), download: 'mypdftools.zip' }).click();
+        el('a', { href: URL.createObjectURL(blob), download: 'myswisstools.zip' }).click();
       } }, 'Download all as ZIP'));
-    } else if (items[0].type === 'application/pdf') {
-      const select = el('select', { 'aria-label': 'Next tool' }, TOOLS.filter((t) => t.accept.includes('pdf') && t.id !== tool.id).map((t) => el('option', { value: t.id }, t.name)));
+    } else if (/pdf|image/.test(items[0].type)) {
+      const isImage = items[0].type.startsWith('image/');
+      const options = TOOLS.filter((t) => t.id !== tool.id && t.accept.includes(isImage ? 'image/' : 'pdf'));
+      const select = el('select', { 'aria-label': 'Next tool' }, options.map((t) => el('option', { value: t.id }, t.name)));
       panel.append(el('div', { class: 'next' }, el('span', {}, 'Keep going with'), select,
         el('button', { type: 'button', class: 'ghost', onclick: () => {
-          handoff = new File([items[0].blob], items[0].name, { type: 'application/pdf' });
+          handoff = new File([items[0].blob], items[0].name, { type: items[0].type });
           location.hash = `#/${select.value}`;
         } }, 'Open')));
     }
@@ -309,8 +335,12 @@ function toolPage(tool) {
 function route() {
   const id = location.hash.replace(/^#\/?/, '');
   const tool = TOOLS.find((t) => t.id === id);
+  const space = tool?.space ?? (id === 'img' ? 'img' : 'pdf');
+  document.querySelectorAll('.space-pill a').forEach((a) => {
+    if (a.dataset.space === space) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
   window.scrollTo(0, 0);
-  if (tool) toolPage(tool); else home();
+  if (tool) toolPage(tool); else home(space);
 }
 
 window.addEventListener('hashchange', route);

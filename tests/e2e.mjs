@@ -11,7 +11,12 @@ import { Document, Packer, Paragraph, HeadingLevel, TextRun, Table, TableRow, Ta
 import PptxGen from 'pptxgenjs';
 import XLSX from 'xlsx';
 import JSZip from 'jszip';
+import { execFileSync } from 'node:child_process';
+import { copyFileSync, readFileSync } from 'node:fs';
+import gifenc from 'gifenc';
+import { parseGIF, decompressFrames } from 'gifuct-js';
 
+const { GIFEncoder, quantize, applyPalette } = gifenc;
 const PORT = 8137, BASE = `http://localhost:${PORT}/`;
 const dir = 'tests/output', fx = (n) => join(dir, 'fixtures', n);
 mkdirSync(join(dir, 'fixtures'), { recursive: true });
@@ -143,6 +148,42 @@ async function makeFixtures(page) {
   write('note.md', '# Big Title\n\nSome **strong** text.\n\n- item one\n- item two\n\n```\ncode line\n```\n');
   write('note.txt', 'Plain line one\nPlain line two\n');
 
+  const made = await page.evaluate(() => {
+    const out = {};
+    const bytes = (c, type, q) => [...atob(c.toDataURL(type, q).split(',')[1])].map((ch) => ch.charCodeAt(0));
+    const c = document.createElement('canvas'); c.width = 800; c.height = 600;
+    const x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 800, 600); g.addColorStop(0, '#e33'); g.addColorStop(1, '#27c');
+    x.fillStyle = g; x.fillRect(0, 0, 800, 600);
+    for (let i = 0; i < 900; i++) { x.fillStyle = `hsl(${(i * 37) % 360} 70% 50%)`; x.fillRect((i * 7919) % 800, (i * 6577) % 600, 14, 14); }
+    out.jpg = bytes(c, 'image/jpeg', 0.98); out.png = bytes(c, 'image/png'); out.webp = bytes(c, 'image/webp', 0.95);
+    const p = document.createElement('canvas'); p.width = 300; p.height = 500;
+    const y = p.getContext('2d'); y.fillStyle = '#123'; y.fillRect(0, 0, 300, 500);
+    out.portrait = bytes(p, 'image/jpeg', 0.9);
+    const a = document.createElement('canvas'); a.width = 200; a.height = 200;
+    const z = a.getContext('2d'); z.fillStyle = '#0a0'; z.beginPath(); z.arc(100, 100, 80, 0, 7); z.fill();
+    out.alpha = bytes(a, 'image/png');
+    return out;
+  });
+  write('small.jpg', Uint8Array.from(made.jpg)); write('small.png', Uint8Array.from(made.png)); write('small.webp', Uint8Array.from(made.webp));
+  write('tall.jpg', Uint8Array.from(made.portrait)); write('alpha.png', Uint8Array.from(made.alpha));
+  write('pic.svg', '<?xml version="1.0"?><!-- comment --><svg xmlns="http://www.w3.org/2000/svg" width="240" height="120" viewBox="0 0 240 120"><metadata>junk junk junk</metadata><rect width="240" height="120" fill="#ff0000"/>   <circle cx="60" cy="60" r="30" fill="#00ff00"/></svg>');
+  const gif = GIFEncoder();
+  for (const hue of [0, 1, 2]) {
+    const data = new Uint8ClampedArray(60 * 40 * 4);
+    for (let i = 0; i < data.length; i += 4) { data[i + hue] = 255; data[i + 3] = 255; }
+    const palette = quantize(data, 16);
+    gif.writeFrame(applyPalette(data, palette), 60, 40, { palette, delay: 120 });
+  }
+  gif.finish();
+  write('anim.gif', gif.bytes());
+  const big = Buffer.from(made.jpg), thumb = Buffer.from(made.portrait);
+  write('photo.cr2', Buffer.concat([Buffer.from('II*\0fake-raw-header-'), thumb, Buffer.alloc(4096, 7), big, Buffer.alloc(8192, 3)]));
+  for (const [format, name] of [['heic', 'small.heic'], ['tiff', 'small.tif'], ['psd', 'small.psd']]) {
+    execFileSync('sips', ['-s', 'format', format, fx('small.jpg'), '--out', fx(name)], { stdio: 'ignore' });
+  }
+  copyFileSync('node_modules/@vladmandic/face-api/demo/sample2.jpg', fx('face.jpg'));
+
   write('page.html', '<html><head><title>x</title><script>document.title="pwned"</script></head><body><h1 style="color:#c00">Web Heading</h1><p>Body paragraph with <b>bold</b> words.</p><img src="https://example.com/track.png"><div style="background:url(https://example.com/bg.png)">styled</div><style>@import "https://example.com/a.css";</style><link rel="stylesheet" href="https://example.com/b.css"></body></html>');
 }
 
@@ -264,8 +305,25 @@ await test('home', async () => {
 await test('repo-link', async () => {
   await page.goto(BASE);
   const a = page.locator('.top a.source');
-  check((await a.getAttribute('href')) === 'https://github.com/harshadodderi/Mypdftools', 'wrong link');
+  check((await a.getAttribute('href')) === 'https://github.com/harshadodderi/myswisstools', 'wrong link');
   check(await a.isVisible(), 'hidden');
+});
+
+await test('space-pill', async () => {
+  await page.goto(BASE);
+  await page.waitForSelector('.tool-card');
+  check(await page.getAttribute('.space-pill a[data-space="pdf"]', 'aria-current') === 'page', 'pdf not active');
+  const pdfCount = await page.locator('.tool-card').count();
+  await page.click('.space-pill a[data-space="img"]');
+  await page.waitForFunction(() => document.querySelector('h1').textContent.includes('Image'));
+  const imgCount = await page.locator('.tool-card').count();
+  check(imgCount === 13, `image tools ${imgCount}`);
+  check(pdfCount === 44, `pdf tools ${pdfCount}`);
+  check(await page.getAttribute('.space-pill a[data-space="img"]', 'aria-current') === 'page', 'img not active');
+  await page.click('.tool-card[href="#/crop-image"]');
+  await page.waitForSelector('.tool-title');
+  check(await page.getAttribute('.space-pill a[data-space="img"]', 'aria-current') === 'page', 'lost space on tool page');
+  check(await page.getAttribute('.back', 'href') === '#/img', 'back goes to the wrong space');
 });
 
 await test('no-stray-null', async () => {
@@ -736,6 +794,352 @@ await test('batch-compress-report', async () => {
   await open('compress', ['heavy.pdf', 'text.pdf']);
   const out = await run();
   check(out.length === 2 && (await page.textContent('#results')).includes('heavy.pdf'), 'batch summary missing');
+});
+
+const info = (o) => page.evaluate(async ({ bytes, name }) => {
+  const type = name.endsWith('.png') ? 'image/png' : name.endsWith('.webp') ? 'image/webp' : name.endsWith('.gif') ? 'image/gif' : 'image/jpeg';
+  const b = await createImageBitmap(new Blob([Uint8Array.from(bytes)], { type }));
+  const c = document.createElement('canvas'); c.width = b.width; c.height = b.height;
+  const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(b, 0, 0);
+  const at = (fx, fy) => [...x.getImageData(Math.min(b.width - 1, b.width * fx), Math.min(b.height - 1, b.height * fy), 1, 1).data];
+  return { w: b.width, h: b.height, center: at(0.5, 0.5), corner: at(0.02, 0.02), mid: at(0.25, 0.25), face: at(0.8, 0.22) };
+}, o);
+const gifFrames = (o) => decompressFrames(parseGIF(Uint8Array.from(o.bytes).buffer), true).length;
+const stateFile = (n) => readFileSync(fx(n)).length;
+
+await test('compress-image-jpg', async () => {
+  await open('compress-image', ['small.jpg']);
+  const [o] = await run(); save(o);
+  check(o.name.endsWith('.jpg') && o.bytes.length < stateFile('small.jpg') * 0.8, `${stateFile('small.jpg')} -> ${o.bytes.length}`);
+  const i = await info(o);
+  check(i.w === 800 && i.h === 600, `${i.w}x${i.h}`);
+});
+
+await test('compress-image-png', async () => {
+  await open('compress-image', ['small.png']);
+  await setField('level', 'strong');
+  const [o] = await run(); save(o);
+  check(o.bytes[0] === 0x89 && o.bytes.length < stateFile('small.png'), `${stateFile('small.png')} -> ${o.bytes.length}`);
+  check((await info(o)).w === 800, 'png broken');
+});
+
+await test('compress-image-svg', async () => {
+  await open('compress-image', ['pic.svg']);
+  const [o] = await run();
+  const t = Buffer.from(o.bytes).toString();
+  check(o.name.endsWith('.svg') && o.bytes.length < stateFile('pic.svg') && !t.includes('comment') && t.includes('<circle'), t.slice(0, 100));
+});
+
+await test('compress-image-gif-keeps-animation', async () => {
+  await open('compress-image', ['anim.gif']);
+  await setField('level', 'strong');
+  const [o] = await run();
+  check(gifFrames(o) === 3, `${gifFrames(o)} frames`);
+});
+
+await test('compress-image-batch', async () => {
+  await open('compress-image', ['small.jpg', 'small.png']);
+  const out = await run();
+  check(out.length === 2 && await page.locator('#zip-all').count() === 1, 'batch failed');
+});
+
+await test('resize-pixels', async () => {
+  await open('resize-image', ['small.jpg']);
+  await setField('width', 400);
+  const [o] = await run(); save(o);
+  const i = await info(o);
+  check(i.w === 400 && i.h === 300, `${i.w}x${i.h}`);
+});
+
+await test('resize-percent', async () => {
+  await open('resize-image', ['small.png']);
+  await setField('mode', 'percent');
+  await setField('percent', 25);
+  const [o] = await run();
+  const i = await info(o);
+  check(o.name.endsWith('.png') && i.w === 200 && i.h === 150, `${i.w}x${i.h}`);
+});
+
+await test('resize-no-enlarge', async () => {
+  await open('resize-image', ['small.jpg']);
+  await setField('width', 5000);
+  const [o] = await run();
+  check((await info(o)).w === 800, 'enlarged');
+});
+
+await test('resize-exact-no-keep', async () => {
+  await open('resize-image', ['small.jpg']);
+  await setField('width', 500);
+  await setField('height', 500);
+  await setField('keep', false);
+  const [o] = await run();
+  const i = await info(o);
+  check(i.w === 500 && i.h === 500, `${i.w}x${i.h}`);
+});
+
+await test('resize-gif-and-svg', async () => {
+  await open('resize-image', ['anim.gif']);
+  await setField('width', 30);
+  const [g] = await run();
+  check(gifFrames(g) === 3 && (await info(g)).w === 30, 'gif');
+  await open('resize-image', ['pic.svg']);
+  await setField('width', 120);
+  const [v] = await run();
+  const t = Buffer.from(v.bytes).toString();
+  check(t.includes('width="120"') && t.includes('height="60"') && t.includes('viewBox'), t.slice(0, 120));
+});
+
+await test('crop-default-and-ratio', async () => {
+  await open('crop-image', ['small.jpg']);
+  await page.waitForSelector('.box.crop');
+  check(await page.inputValue('#f-w') === '680', await page.inputValue('#f-w'));
+  await setField('ratio', '1');
+  await page.waitForFunction(() => document.querySelector('#f-w').value === document.querySelector('#f-h').value);
+  const [o] = await run(); save(o);
+  const i = await info(o);
+  check(i.w === i.h && i.w === 540, `${i.w}x${i.h}`);
+});
+
+await test('crop-typed-pixels', async () => {
+  await open('crop-image', ['small.png']);
+  await page.waitForSelector('.box.crop');
+  await setField('x', 10); await setField('y', 20); await setField('w', 300); await setField('h', 200);
+  const [o] = await run();
+  const i = await info(o);
+  check(i.w === 300 && i.h === 200, `${i.w}x${i.h}`);
+});
+
+await test('crop-drag-corner', async () => {
+  await open('crop-image', ['small.png']);
+  await page.waitForSelector('.box.crop .grip-br');
+  const b = await page.locator('.box.crop .grip-br').boundingBox();
+  await page.mouse.move(b.x + 8, b.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(b.x - 92, b.y - 52, { steps: 5 });
+  await page.mouse.up();
+  check(+(await page.inputValue('#f-w')) < 640, 'corner drag ignored');
+});
+
+await test('crop-gif', async () => {
+  await open('crop-image', ['anim.gif']);
+  await page.waitForSelector('.box.crop');
+  const [o] = await run();
+  check(gifFrames(o) === 3, 'lost frames');
+});
+
+await test('rotate-image', async () => {
+  await open('rotate-image', ['small.jpg', 'tall.jpg']);
+  await page.waitForSelector('.page-card canvas >> nth=1');
+  await setField('only', 'landscape');
+  await page.click('#rotate-right');
+  const out = await run();
+  check(out.length === 1, `changed ${out.length}`);
+  const i = await info(out[0]);
+  check(i.w === 600 && i.h === 800, `${i.w}x${i.h}`);
+});
+
+await test('rotate-flip', async () => {
+  await open('rotate-image', ['small.png']);
+  await page.waitForSelector('.page-card canvas');
+  await page.click('#flip-h');
+  const [o] = await run();
+  check((await info(o)).w === 800, 'flip broke size');
+});
+
+await test('rotate-nothing', async () => {
+  await open('rotate-image', ['small.png']);
+  await page.waitForSelector('.page-card canvas');
+  await page.click('#run');
+  await expectToast('at least one');
+});
+
+await test('photo-editor', async () => {
+  await open('photo-editor', ['small.jpg']);
+  await page.waitForSelector('#overlay-text');
+  await page.fill('#overlay-text', 'Hello');
+  await page.click('#add-text');
+  await page.click('.sticker >> nth=0');
+  check(await page.locator('.box.overlay').count() === 2, 'overlays missing');
+  await setField('filter', 'mono');
+  await setField('frame', 'thick');
+  const [o] = await run(); save(o);
+  const i = await info(o);
+  check(i.w === 800, 'size');
+  check(Math.abs(i.mid[0] - i.mid[1]) < 12 && Math.abs(i.mid[1] - i.mid[2]) < 12, `not mono ${i.mid}`);
+  check(i.corner[0] > 240 && i.corner[1] > 240, `no frame ${i.corner}`);
+});
+
+await test('meme-generator', async () => {
+  await open('meme-generator', ['small.jpg']);
+  await page.waitForSelector('.preview canvas');
+  await setField('top', 'WHEN IT WORKS');
+  await setField('bottom', 'FIRST TRY');
+  const [o] = await run(); save(o);
+  const plain = await info({ name: 'a.jpg', bytes: [...readFileSync(fx('small.jpg'))] });
+  check((await info(o)).w === plain.w, 'size');
+  check(o.bytes.length !== plain.w, 'no output');
+});
+
+await test('watermark-image', async () => {
+  await open('watermark-image', ['small.jpg', 'small.png']);
+  await page.waitForSelector('.preview canvas');
+  await setField('text', 'Mine');
+  await setField('position', 'cc');
+  await setField('opacity', 100);
+  await setField('size', 24);
+  const out = await run();
+  check(out.length === 2, `files ${out.length}`);
+  save(out[0]);
+  const i = await info(out[1]);
+  const before = await info({ name: 'a.png', bytes: [...readFileSync(fx('small.png'))] });
+  check(i.center.join() !== before.center.join() || i.w === 800, 'no change');
+});
+
+await test('watermark-image-logo-and-tile', async () => {
+  await open('watermark-image', ['small.jpg']);
+  await page.waitForSelector('.preview canvas');
+  await setField('kind', 'image');
+  await page.setInputFiles('#f-image', fx('alpha.png'));
+  await setField('position', 'tile');
+  const [o] = await run();
+  check((await info(o)).w === 800, 'failed');
+});
+
+for (const f of ['small.png', 'small.webp', 'pic.svg', 'small.heic', 'small.tif', 'small.psd', 'photo.cr2', 'anim.gif']) {
+  await test(`to-jpg-${f}`, async () => {
+    await open('convert-to-jpg', [f]);
+    const [o] = await run(90000);
+    check(o.bytes[0] === 0xff && o.bytes[1] === 0xd8, 'not JPEG');
+    const i = await info(o);
+    const want = { 'pic.svg': 240, 'anim.gif': 60 }[f] ?? 800;
+    check(i.w === want, `${i.w}x${i.h}`);
+  });
+}
+
+await test('to-jpg-gif-frames', async () => {
+  await open('convert-to-jpg', ['anim.gif']);
+  await setField('frames', true);
+  const out = await run();
+  check(out.length === 3, `${out.length} frames`);
+});
+
+await test('transparent-becomes-white', async () => {
+  await open('convert-to-jpg', ['alpha.png']);
+  const [o] = await run();
+  check((await info(o)).corner[0] > 245, 'corner not white');
+});
+
+for (const [format, magic] of [['png', 0x89], ['webp', 0x52], ['gif', 0x47]]) {
+  await test(`from-jpg-${format}`, async () => {
+    await open('convert-from-jpg', ['small.jpg']);
+    await setField('format', format);
+    const [o] = await run();
+    if (format === 'webp' && engine === 'webkit') { check(o.name.endsWith('.png'), 'should name the fallback honestly'); return; }
+    check(o.bytes[0] === magic && o.name.endsWith(`.${format}`), `${o.name}`);
+  });
+}
+
+await test('animated-gif-from-images', async () => {
+  await open('convert-from-jpg', ['small.jpg', 'tall.jpg', 'small.png']);
+  await setField('format', 'animated');
+  await setField('width', 200);
+  const [o] = await run(); save(o);
+  check(o.name.endsWith('.gif') && gifFrames(o) === 3, `${gifFrames(o)} frames`);
+});
+
+await test('upscale-2x', async () => {
+  await open('upscale-image', ['pic.svg']);
+  const [o] = await run(180000); save(o);
+  const i = await info(o);
+  check(i.w === 480 && i.h === 240, `${i.w}x${i.h}`);
+  check(i.mid[0] > 150 || i.mid[1] > 150, `blank ${i.mid}`);
+});
+
+await test('upscale-4x-keeps-alpha', async () => {
+  await open('upscale-image', ['alpha.png']);
+  await setField('scale', '4');
+  const [o] = await run(180000);
+  const i = await info(o);
+  check(i.w === 800 && i.center[1] > 120 && i.center[3] === 255, `${i.w} ${i.center}`);
+  check(i.corner[3] === 0, `alpha lost ${i.corner}`);
+});
+
+await test('remove-background', async () => {
+  await open('remove-background', ['face.jpg']);
+  const [o] = await run(120000); save(o);
+  const i = await info(o);
+  check(o.name.endsWith('.png'), o.name);
+  check(i.corner[3] < 80, `background kept ${i.corner}`);
+  check(i.face[3] > 200, `subject lost ${i.face}`);
+});
+
+await test('remove-background-color', async () => {
+  await open('remove-background', ['face.jpg']);
+  await setField('fill', 'white');
+  const [o] = await run(120000);
+  check((await info(o)).corner[3] === 255, 'not filled');
+});
+
+await test('blur-face-detects', async () => {
+  await open('blur-face', ['face.jpg']);
+  await page.waitForFunction(() => /found/i.test(document.querySelector('#face-status').textContent), null, { timeout: 90000 });
+  const n = await page.locator('.redact-box').count();
+  check(n >= 1, `${await page.textContent('#face-status')}`);
+  await setField('style', 'block');
+  const [o] = await run(); save(o);
+  check((await info(o)).w > 100, 'failed');
+});
+
+await test('blur-manual-area', async () => {
+  await open('blur-face', ['small.jpg']);
+  await page.waitForFunction(() => /found|unavailable/i.test(document.querySelector('#face-status').textContent), null, { timeout: 90000 });
+  await page.click('#add-area');
+  const b = await page.locator('.stage-layer').boundingBox();
+  await page.mouse.move(b.x + b.width * 0.1, b.y + b.height * 0.1);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width * 0.9, b.y + b.height * 0.9, { steps: 5 });
+  await page.mouse.up();
+  await setField('style', 'block');
+  const [o] = await run();
+  const i = await info(o);
+  check(i.center[0] < 12 && i.center[1] < 12, `not blocked ${i.center}`);
+  await setField('style', 'pixel');
+  const [p] = await run();
+  check((await info(p)).w === 800, 'pixelate failed');
+  await setField('style', 'blur');
+  const [q] = await run();
+  check((await info(q)).w === 800, 'blur failed');
+});
+
+await test('html-to-image', async () => {
+  await open('html-to-image');
+  await setField('source', '<h1 style="color:#c00">Big</h1><p>Paragraph words here.</p>');
+  await setField('width', 600);
+  const [o] = await run(); save(o);
+  const i = await info(o);
+  check(o.name.endsWith('.jpg') && i.w > 590, `${i.w}x${i.h}`);
+});
+
+await test('html-to-image-svg-png', async () => {
+  await open('html-to-image', ['page.html']);
+  await setField('format', 'svg');
+  const [s] = await run();
+  const t = Buffer.from(s.bytes).toString();
+  check(t.includes('<foreignObject') && t.includes('Web Heading') && !t.includes('example.com') && !t.includes('<script'), t.slice(0, 200));
+  await setField('format', 'png');
+  const [p] = await run();
+  check(p.bytes[0] === 0x89, 'not png');
+});
+
+await test('image-handoff', async () => {
+  await open('compress-image', ['small.jpg']);
+  await run();
+  await page.selectOption('.next select', 'resize-image');
+  await page.click('.next button');
+  await page.waitForSelector('#f-width');
+  await setField('width', 100);
+  const [o] = await run();
+  check((await info(o)).w === 100, 'handoff failed');
 });
 
 await test('pdfa', async () => {

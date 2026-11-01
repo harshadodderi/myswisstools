@@ -1,7 +1,7 @@
 {
-  "name": "Mypdftools",
-  "short_name": "Mypdftools",
-  "description": "Private PDF tools that run entirely in your browser",
+  "name": "myswisstools",
+  "short_name": "myswisstools",
+  "description": "Private PDF and image tools that run entirely in your browser",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
