@@ -31,6 +31,8 @@ a { color: inherit; }
 .promise { margin: 0; font-size: 12px; color: var(--soft); }
 .dot { display: none; }
 .foot { max-width: 1128px; width: 100%; margin: 0 auto; padding: 18px 24px 28px; color: var(--faint); font-size: 13px; }
+.top-right { display: flex; align-items: center; gap: 14px; }
+.source { min-height: 32px; padding: 4px 11px; font-size: 13px; }
 .foot p { margin: 0; max-width: 64ch; }
 
 .hero { padding: 86px 0 52px; max-width: 760px; margin: 0 auto; text-align: center; }
@@ -196,7 +198,7 @@ button, .ghost, .download { font: inherit; cursor: pointer; }
 @media (max-width: 560px) {
   main, .foot { padding-left: 16px; padding-right: 16px; }
   .top { padding: 0 16px; }
-  .promise { font-size: 12px; }
+  .promise { display: none; }
   .hero { padding-top: 40px; }
   .hero p { font-size: 17px; }
   .stats { flex-wrap: wrap; row-gap: 14px; }

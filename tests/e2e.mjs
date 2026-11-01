@@ -261,6 +261,13 @@ await test('home', async () => {
   check(await page.locator('.tool-card').count() === 1, 'search did not filter');
 });
 
+await test('repo-link', async () => {
+  await page.goto(BASE);
+  const a = page.locator('.top a.source');
+  check((await a.getAttribute('href')) === 'https://github.com/harshadodderi/Mypdftools', 'wrong link');
+  check(await a.isVisible(), 'hidden');
+});
+
 await test('no-stray-null', async () => {
   await open('watermark');
   check(!(await page.textContent('.tool-body')).includes('null'), 'stray null rendered');
