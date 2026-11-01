@@ -261,6 +261,11 @@ await test('home', async () => {
   check(await page.locator('.tool-card').count() === 1, 'search did not filter');
 });
 
+await test('no-stray-null', async () => {
+  await open('watermark');
+  check(!(await page.textContent('.tool-body')).includes('null'), 'stray null rendered');
+});
+
 await test('merge', async () => {
   await open('merge', ['text.pdf', 'table.pdf']);
   await page.click('[aria-label="Move table.pdf up"]');

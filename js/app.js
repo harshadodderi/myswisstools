@@ -64,36 +64,31 @@ setPasswordPrompt(async (name, wrong) => {
 
 function home() {
   document.title = 'Mypdftools';
-  let cat = 'all';
-  const search = el('input', { type: 'search', id: 'tool-search', placeholder: `Search ${TOOLS.length} tools`, 'aria-label': 'Search tools' });
-  const grid = el('div', { class: 'tool-grid' });
+  const search = el('input', { type: 'search', id: 'tool-search', placeholder: `Search ${TOOLS.length} tools`, 'aria-label': 'Search tools', autocomplete: 'off' });
+  const groups = el('div', { class: 'groups' });
   const empty = el('p', { class: 'muted', hidden: true }, 'No tool matches that search.');
 
   const draw = () => {
     const q = search.value.trim().toLowerCase();
-    const list = TOOLS.filter((t) => (cat === 'all' || t.cat === cat) && (`${t.name} ${t.desc}`.toLowerCase().includes(q)));
-    grid.replaceChildren(...list.map((t) => el('a', { class: `tool-card cat-${t.cat}`, href: `#/${t.id}` },
-      icon(t.icon), el('h3', {}, t.name), el('p', {}, t.desc))));
-    empty.hidden = list.length > 0;
+    const sections = CATS.map(([id, label]) => {
+      const list = TOOLS.filter((t) => t.cat === id && `${t.name} ${t.desc}`.toLowerCase().includes(q));
+      if (!list.length) return null;
+      return el('section', { class: 'group' }, el('h2', {}, label),
+        el('div', { class: 'tool-grid' }, list.map((t) => el('a', { class: 'tool-card', href: `#/${t.id}`, title: t.desc },
+          icon(t.icon), el('span', {}, t.name)))));
+    }).filter(Boolean);
+    groups.replaceChildren(...sections);
+    empty.hidden = sections.length > 0;
   };
-  const tabs = el('div', { class: 'tabs', role: 'group', 'aria-label': 'Filter tools' },
-    [['all', 'All tools'], ...CATS].map(([id, label]) => el('button', {
-      type: 'button', 'aria-pressed': String(id === 'all'),
-      onclick: (e) => {
-        cat = id;
-        tabs.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', 'false'));
-        e.currentTarget.setAttribute('aria-pressed', 'true');
-        draw();
-      },
-    }, label)));
   search.addEventListener('input', draw);
+  search.addEventListener('keydown', (e) => { if (e.key === 'Enter') groups.querySelector('a')?.click(); });
   draw();
   root.replaceChildren(
     el('section', { class: 'hero' },
-      el('h1', {}, 'PDF work, done on your own machine.'),
-      el('p', {}, 'Merge, split, compress, convert, sign and protect. No uploads and no account, and it works offline after your first visit.')),
-    el('div', { class: 'filters' }, tabs, search),
-    grid, empty);
+      el('h1', {}, 'Your PDFs. Your device.'),
+      el('p', {}, 'Every tool runs right here in your browser. Nothing is ever uploaded.'),
+      search),
+    groups, empty);
 }
 
 /* ---------- tool page ---------- */
@@ -128,7 +123,7 @@ function toolPage(tool) {
   document.title = `${tool.name} · Mypdftools`;
   let files = [];
   const head = el('header', { class: 'tool-head' }, el('a', { class: 'back', href: '#/' }, '← All tools'),
-    el('div', { class: `tool-title cat-${tool.cat}` }, icon(tool.icon), el('div', {}, el('h1', {}, tool.name), el('p', {}, tool.desc))));
+    el('div', { class: 'tool-title' }, icon(tool.icon), el('div', {}, el('h1', {}, tool.name), el('p', {}, tool.desc))));
   const body = el('div', { class: 'tool-body' });
   root.replaceChildren(head, body);
 
@@ -166,7 +161,7 @@ function toolPage(tool) {
       handoff = null;
       addFiles([f]);
     } else if (tool.optionalFiles) workspace();
-    else body.replaceChildren(picker, drop(), tool.note ? el('p', { class: 'note' }, tool.note) : null);
+    else body.replaceChildren(...[picker, drop(), tool.note && el('p', { class: 'note' }, tool.note)].filter(Boolean));
   };
 
   function fileList() {
